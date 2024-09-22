@@ -5916,8 +5916,14 @@ var $author$project$Main$viewTH = function (category) {
 		_List_Nil,
 		_List_fromArray(
 			[
-				$elm$html$Html$text(
-				$author$project$Main$categoryToString(category))
+				A2(
+				$elm$html$Html$h1,
+				_List_Nil,
+				_List_fromArray(
+					[
+						$elm$html$Html$text(
+						$author$project$Main$categoryToString(category))
+					]))
 			]));
 };
 var $elm$html$Html$td = _VirtualDom_node('td');
@@ -5937,6 +5943,7 @@ var $author$project$Main$computeTimeLeft = F2(
 		var seconds = (secondsLeft / 1000) | 0;
 		return 'Expires in ' + ($elm$core$String$fromInt(days) + (':' + ($elm$core$String$fromInt(hours) + (':' + ($elm$core$String$fromInt(minutes) + (':' + $elm$core$String$fromInt(seconds)))))));
 	});
+var $elm$html$Html$h3 = _VirtualDom_node('h3');
 var $author$project$Main$MoveTask = F2(
 	function (a, b) {
 		return {$: 'MoveTask', a: a, b: b};
@@ -5994,7 +6001,7 @@ var $author$project$Main$viewTask = F3(
 			_List_fromArray(
 				[
 					A2(
-					$elm$html$Html$h1,
+					$elm$html$Html$h3,
 					_List_Nil,
 					_List_fromArray(
 						[

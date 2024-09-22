@@ -198,7 +198,7 @@ viewTaskInput model =
 viewTask : Time.Posix -> Category -> Task -> Html Msg
 viewTask currentTime currentCategory task =
     div [ style "border" "1px solid black" ]
-        [ h1 [] [ text task.content ]
+        [ h3 [] [ text task.content ]
         , div [] (viewTaskButtons currentCategory task)
         , div [] [ text <| computeTimeLeft currentTime task.destroyedAt ]
         ]
@@ -301,7 +301,7 @@ categoryToString category =
 
 viewTH : Category -> Html Msg
 viewTH category =
-    th [] [ text (categoryToString category) ]
+    th [] [ h1 [] [text (categoryToString category)] ]
 
 
 viewTaskTable : Model -> Html Msg
