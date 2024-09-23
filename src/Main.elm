@@ -1,9 +1,13 @@
-module Main exposing (main)
+port module Main exposing (main,taskDecoder)
 
 import Browser
+import Dict exposing (Dict)
 import Html exposing (..)
-import Html.Attributes exposing (..)
+import Html.Attributes
 import Html.Events exposing (onClick, onInput)
+import Json.Decode as Decode exposing (Decoder, decodeString, dict, keyValuePairs)
+import Json.Decode.Pipeline exposing (required)
+import Json.Encode
 import Time
 
 
@@ -25,7 +29,7 @@ main =
 
 
 type alias Task =
-    { id : Int
+    { id : String
     , content : String
     , category : Category
     , destroyedAt : Time.Posix
@@ -44,24 +48,64 @@ categories =
     [ NotKnowing, Action, Done, Destroyed ]
 
 
+type alias NotKnowingTasks =
+    Dict String Task
+
+
+type alias ActionTasks =
+    Dict String Task
+
+
+type alias DoneTasks =
+    Dict String Task
+
+
+type alias DestroyedTasks =
+    Dict String Task
+
+
 type alias Model =
-    { tasks : List Task
-    , nextId : Int
+    { notKnowingTasks : NotKnowingTasks
+    , actionTasks : ActionTasks
+    , doneTasks : DoneTasks
+    , destroyedTasks : DestroyedTasks
     , newTaskContent : String
     , currentTime : Time.Posix
     }
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( { tasks = []
-      , nextId = 1
-      , newTaskContent = ""
-      , currentTime = Time.millisToPosix 0
-      }
-    , Cmd.none
-    )
+type alias SaveModel =
+    { notKnowingTasks : NotKnowingTasks
+    , actionTasks : ActionTasks
+    , doneTasks : DoneTasks
+    , destroyedTasks : DestroyedTasks
+    }
 
+
+init : Json.Encode.Value -> ( Model, Cmd Msg )
+init flags =
+    case Decode.decodeValue saveModelDecoder flags of
+        Ok savedModel ->
+            ( { notKnowingTasks = savedModel.notKnowingTasks
+              , actionTasks = savedModel.actionTasks
+              , doneTasks = savedModel.doneTasks
+              , destroyedTasks = savedModel.destroyedTasks
+              , newTaskContent = ""
+              , currentTime = Time.millisToPosix 0
+              }
+            , Cmd.none
+            )
+
+        Err _ ->
+            ( { notKnowingTasks = Dict.empty
+              , actionTasks = Dict.empty
+              , doneTasks = Dict.empty
+              , destroyedTasks = Dict.empty
+              , newTaskContent = ""
+              , currentTime = Time.millisToPosix 0
+              }
+            , Cmd.none
+            )
 
 
 -- UPDATE
@@ -70,8 +114,9 @@ init _ =
 type Msg
     = AddTask
     | UpdateNewTaskContent String
-    | MoveTask Int Category
+    | MoveTask String Category Category
     | Tick Time.Posix
+    | LoadTasksFromLocalStorage Json.Encode.Value
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -83,18 +128,23 @@ update msg model =
 
             else
                 let
-                    movedTasks =
-                        Task model.nextId model.newTaskContent NotKnowing (getDestroyedAt model.currentTime) :: model.tasks
+                    id =
+                        String.fromInt (Time.posixToMillis model.currentTime)
 
-                    updatedTaskList =
-                        sortTasks movedTasks
+                    newNotKnowingTasks =
+                        Dict.insert id (Task id model.newTaskContent NotKnowing (getDestroyedAt model.currentTime)) model.notKnowingTasks
                 in
                 ( { model
-                    | tasks = updatedTaskList
-                    , nextId = model.nextId + 1
+                    | notKnowingTasks = newNotKnowingTasks
                     , newTaskContent = ""
                   }
-                , Cmd.none
+                , saveTasks <|
+                    encodeTasks
+                        { notKnowingTasks = newNotKnowingTasks
+                        , actionTasks = model.actionTasks
+                        , doneTasks = model.doneTasks
+                        , destroyedTasks = model.destroyedTasks
+                        }
                 )
 
         UpdateNewTaskContent content ->
@@ -102,67 +152,144 @@ update msg model =
             , Cmd.none
             )
 
-        MoveTask id category ->
-            let
-                movedTasks : List Task
-                movedTasks =
-                    List.map (moveTaskIfMatch id category) model.tasks
-
-                updatedTaskList =
-                    sortTasks movedTasks
-            in
-            ( { model | tasks = List.map (moveTaskIfMatch id category) updatedTaskList }
-            , Cmd.none
-            )
-
         Tick newTime ->
-            ( { model
-                | currentTime = newTime
-                , tasks = List.map (expireTaskIfNeeded newTime) model.tasks
-              }
+            let
+                expiringActionTasks =
+                    Dict.filter (\_ task -> Time.posixToMillis newTime > Time.posixToMillis task.destroyedAt) model.actionTasks
+
+                expiringNotKnowingTasks =
+                    Dict.filter (\_ task -> Time.posixToMillis newTime > Time.posixToMillis task.destroyedAt) model.notKnowingTasks
+
+                allExpiringTasks = Dict.union expiringActionTasks expiringNotKnowingTasks
+
+                newModel =
+                    case Dict.toList allExpiringTasks of
+                        (taskId, task) :: _ ->
+                            let
+                                tasks = moveTasks model taskId task.category Destroyed
+                            in
+                                { model
+                                | currentTime = newTime
+                                , actionTasks = tasks.actionTasks
+                                , notKnowingTasks = tasks.notKnowingTasks
+                                , doneTasks = tasks.doneTasks
+                                , destroyedTasks = tasks.destroyedTasks
+                                }
+
+                        [] ->
+                            { model | currentTime = newTime }
+            in
+            ( newModel
             , Cmd.none
             )
 
+        LoadTasksFromLocalStorage json ->
+            case Decode.decodeValue saveModelDecoder json of
+                Ok loadedTasks ->
+                    ( { model
+                        | actionTasks = loadedTasks.actionTasks
+                        , notKnowingTasks = loadedTasks.notKnowingTasks
+                        , doneTasks = loadedTasks.doneTasks
+                        , destroyedTasks = loadedTasks.destroyedTasks
+                      }
+                    , Cmd.none
+                    )
 
-sortTasks : List Task -> List Task
-sortTasks tasks =
+                Err x ->
+                    Debug.log ("Error decoding json")
+                    Debug.log (Debug.toString x)
+                    ( model, Cmd.none )
+
+        MoveTask taskId fromCategory toCategory ->
+            let
+                tasks =
+                    moveTasks model taskId fromCategory toCategory
+            in
+            ( { model
+                | notKnowingTasks = tasks.notKnowingTasks
+                , actionTasks = tasks.actionTasks
+                , doneTasks = tasks.doneTasks
+                , destroyedTasks = tasks.destroyedTasks
+              }
+            , saveTasks <|
+                encodeTasks
+                    { notKnowingTasks = tasks.notKnowingTasks
+                    , actionTasks = tasks.actionTasks
+                    , doneTasks = tasks.doneTasks
+                    , destroyedTasks = tasks.destroyedTasks
+                    }
+            )
+
+
+moveTasks : Model -> String -> Category -> Category -> SaveModel
+moveTasks model taskId fromCategory toCategory =
     let
-        actionList : List Task
-        actionList =
-            List.filter (\t -> t.category == Action) tasks
+        moveTask : Dict String Task -> Dict String Task -> ( Dict String Task, Dict String Task )
+        moveTask fromDict toDict =
+            case Dict.get taskId fromDict of
+                Just task ->
+                    ( Dict.remove taskId fromDict
+                    , Dict.insert taskId { task | category = toCategory } toDict
+                    )
 
-        notKnowingList : List Task
-        notKnowingList =
-            List.filter (\t -> t.category == NotKnowing) tasks
+                Nothing ->
+                    ( fromDict, toDict )
 
-        doneList : List Task
-        doneList =
-            List.filter (\t -> t.category == Done) tasks
+        ( newFromDict, newToDict ) =
+            case ( fromCategory, toCategory ) of
+                ( NotKnowing, Action ) ->
+                    moveTask model.notKnowingTasks model.actionTasks
 
-        destroyedList : List Task
-        destroyedList =
-            List.filter (\t -> t.category == Destroyed) tasks
+                ( NotKnowing, Done ) ->
+                    moveTask model.notKnowingTasks model.doneTasks
+
+                ( NotKnowing, Destroyed ) ->
+                    moveTask model.notKnowingTasks model.destroyedTasks
+
+                ( Action, Done ) ->
+                    moveTask model.actionTasks model.doneTasks
+
+                ( Action, Destroyed ) ->
+                    moveTask model.actionTasks model.destroyedTasks
+
+                _ ->
+                    ( Dict.empty, Dict.empty )
+
+        notKnowingTasks =
+            if fromCategory == NotKnowing then
+                newFromDict
+
+            else
+                model.notKnowingTasks
+
+        actionTasks =
+            if fromCategory == Action then
+                newFromDict
+
+            else if toCategory == Action then
+                newToDict
+
+            else
+                model.actionTasks
+
+        doneTasks =
+            if fromCategory == Done then
+                newFromDict
+
+            else if toCategory == Done then
+                newToDict
+
+            else
+                model.doneTasks
+
+        destroyedTasks =
+            if toCategory == Destroyed then
+                newToDict
+
+            else
+                model.destroyedTasks
     in
-    actionList ++ notKnowingList ++ doneList ++ destroyedList
-
-
-moveTaskIfMatch : Int -> Category -> Task -> Task
-moveTaskIfMatch id category task =
-    if task.id == id then
-        { task | category = category }
-
-    else
-        task
-
-
-expireTaskIfNeeded : Time.Posix -> Task -> Task
-expireTaskIfNeeded currentTime task =
-    if (Time.posixToMillis currentTime > Time.posixToMillis task.destroyedAt) && task.category /= Done then
-        { task | category = Destroyed }
-
-    else
-        task
-
+    SaveModel notKnowingTasks actionTasks doneTasks destroyedTasks
 
 
 -- SUBSCRIPTIONS
@@ -170,7 +297,10 @@ expireTaskIfNeeded currentTime task =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Time.every 1000 Tick
+    Sub.batch
+        [ Time.every 1000 Tick
+        , loadTasks LoadTasksFromLocalStorage
+        ]
 
 
 
@@ -182,7 +312,7 @@ view model =
     div []
         [ h1 [] [ text "Task Management" ]
         , viewTaskInput model
-        , text (Debug.toString model)
+        , text <| Debug.toString model
         , viewTaskTable model
         ]
 
@@ -190,30 +320,21 @@ view model =
 viewTaskInput : Model -> Html Msg
 viewTaskInput model =
     div []
-        [ input [ type_ "text", placeholder "New task", value model.newTaskContent, onInput UpdateNewTaskContent ] []
+        [ input [ Html.Attributes.type_ "text", Html.Attributes.placeholder "New task", Html.Attributes.value model.newTaskContent, onInput UpdateNewTaskContent ] []
         , button [ onClick AddTask ] [ text "Add Task" ]
         ]
 
 
 viewTask : Time.Posix -> Category -> Task -> Html Msg
 viewTask currentTime currentCategory task =
-    div [ style "border" "1px solid black" ]
+    div [ Html.Attributes.style "border" "1px solid black" ]
         [ h3 [] [ text task.content ]
-        , div [] (viewTaskButtons currentCategory task)
+        , div [] (viewTaskButtons task)
         , div [] [ text <| computeTimeLeft currentTime task.destroyedAt ]
         ]
 
 
-millisecondsInDay =
-    24 * 60 * 60 * 1000
 
-
-millisecondsInHour =
-    60 * 60 * 1000
-
-
-millisecondsInMinute =
-    60 * 1000
 
 
 computeTimeLeft : Time.Posix -> Time.Posix -> String
@@ -259,29 +380,22 @@ computeTimeLeft currentTick destroyTime =
         ++ String.fromInt seconds
 
 
-viewTaskButtons : Category -> Task -> List (Html Msg)
-viewTaskButtons currentCategory task =
+viewTaskButtons : Task -> List (Html Msg)
+viewTaskButtons task =
     case task.category of
         Action ->
-            List.filter (isNotCurrentCategory currentCategory) [ Done, Destroyed ]
-                |> List.map (createMoveButton task.id)
+            List.map (createMoveButton task.id task.category) [ Done, Destroyed ]
 
         NotKnowing ->
-            List.map (createMoveButton task.id) [ Action, Done, Destroyed ]
+            List.map (createMoveButton task.id task.category) [ Action, Done, Destroyed ]
 
         _ ->
             []
 
 
-isNotCurrentCategory : Category -> Category -> Bool
-isNotCurrentCategory currentCategory category =
-    currentCategory /= category
-
-
-createMoveButton : Int -> Category -> Html Msg
-createMoveButton taskId category =
-    button [ onClick (MoveTask taskId category) ] [ text (categoryToString category) ]
-
+createMoveButton : String -> Category -> Category -> Html Msg
+createMoveButton taskId oldCategory newCategory =
+    button [ onClick (MoveTask taskId oldCategory newCategory) ] [ text (categoryToString newCategory) ]
 
 categoryToString : Category -> String
 categoryToString category =
@@ -301,15 +415,22 @@ categoryToString category =
 
 viewTH : Category -> Html Msg
 viewTH category =
-    th [] [ h1 [] [text (categoryToString category)] ]
+    th [] [ h1 [] [ text (categoryToString category) ] ]
 
 
 viewTaskTable : Model -> Html Msg
 viewTaskTable model =
-    table [ style "width" "100%", style "border-collapse" "collapse" ]
+    table [ Html.Attributes.style "width" "100%", Html.Attributes.style "border-collapse" "collapse" ]
         [ thead []
             [ tr [] <| List.map viewTH categories ]
-        , tbody [] (List.map (viewTaskRow model.currentTime) model.tasks)
+        , tbody [] <|
+            List.map (viewTaskRow model.currentTime) <|
+                List.concat
+                    [ Dict.values model.actionTasks
+                    , Dict.values model.notKnowingTasks
+                    , Dict.values model.doneTasks
+                    , Dict.values model.destroyedTasks
+                    ]
         ]
 
 
@@ -326,8 +447,8 @@ viewTaskRow currentTime task =
 viewCategoryCell : Time.Posix -> Category -> Task -> Html Msg
 viewCategoryCell currentTime category task =
     td
-        [ style "text-align" "center"
-        , style "background-color"
+        [ Html.Attributes.style "text-align" "center"
+        , Html.Attributes.style "background-color"
             (if task.category == category then
                 case category of
                     NotKnowing ->
@@ -357,3 +478,98 @@ viewCategoryCell currentTime category task =
 getDestroyedAt : Time.Posix -> Time.Posix
 getDestroyedAt currentTime =
     Time.millisToPosix <| Time.posixToMillis currentTime + (14 * millisecondsInDay)
+
+
+
+-- PORTS
+
+
+port loadTasks : (Json.Encode.Value -> msg) -> Sub msg
+
+
+port sendLoadTasksMsg : () -> Cmd msg
+
+
+port saveTasks : Json.Encode.Value -> Cmd msg
+
+
+categoryDecoder =
+    Decode.string
+        |> Decode.andThen
+            (\str ->
+                case str of
+                    "Not Knowing" ->
+                        Decode.succeed NotKnowing
+
+                    "Action" ->
+                        Decode.succeed Action
+
+                    "Done" ->
+                        Decode.succeed Done
+
+                    "Destroyed" ->
+                        Decode.succeed Destroyed
+
+                    _ ->
+                        Decode.fail "Invalid Category"
+            )
+
+
+encodeTask : Task -> Json.Encode.Value
+encodeTask task =
+    Json.Encode.object
+        [ ( "id", Json.Encode.string task.id )
+        , ( "content", Json.Encode.string task.content )
+        , ( "category", Json.Encode.string <| categoryToString task.category )
+        , ( "destroyedAt", Json.Encode.int <| Time.posixToMillis task.destroyedAt )
+        ]
+
+
+encodeTasks : SaveModel -> Json.Encode.Value
+encodeTasks saveModel =
+    Json.Encode.object
+        [ ( "notKnowingTasks", Json.Encode.dict identity encodeTask saveModel.notKnowingTasks )
+        , ( "actionTasks", Json.Encode.dict identity encodeTask saveModel.actionTasks )
+        , ( "doneTasks", Json.Encode.dict identity encodeTask saveModel.doneTasks )
+        , ( "destroyedTasks", Json.Encode.dict identity encodeTask saveModel.destroyedTasks )
+        ]
+
+
+posixDecoder =
+    Decode.int
+        |> Decode.andThen
+            (\posix -> Decode.succeed (Time.millisToPosix posix))
+
+
+dictTaskDecoder : Decoder (Dict String Task)
+dictTaskDecoder =
+    dict taskDecoder
+
+
+taskDecoder : Decode.Decoder Task
+taskDecoder =
+    Decode.succeed Task
+        |> required "id" Decode.string
+        |> required "content" Decode.string
+        |> required "category" categoryDecoder
+        |> required "destroyedAt" posixDecoder
+
+
+saveModelDecoder : Decode.Decoder SaveModel
+saveModelDecoder =
+    Decode.succeed SaveModel
+        |> required "notKnowingTasks" dictTaskDecoder
+        |> required "actionTasks" dictTaskDecoder
+        |> required "doneTasks" dictTaskDecoder
+        |> required "destroyedTasks" dictTaskDecoder
+
+millisecondsInDay =
+    24 * 60 * 60 * 1000
+
+
+millisecondsInHour =
+    60 * 60 * 1000
+
+
+millisecondsInMinute =
+    60 * 1000
