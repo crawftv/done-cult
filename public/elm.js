@@ -5205,80 +5205,18 @@ var $elm$core$Task$perform = F2(
 				A2($elm$core$Task$map, toMessage, task)));
 	});
 var $elm$browser$Browser$element = _Browser_element;
-<<<<<<< HEAD
 var $elm$json$Json$Decode$decodeValue = _Json_run;
 var $elm$core$Dict$RBEmpty_elm_builtin = {$: 'RBEmpty_elm_builtin'};
 var $elm$core$Dict$empty = $elm$core$Dict$RBEmpty_elm_builtin;
-=======
->>>>>>> 976d721 (remove debug)
 var $elm$time$Time$Posix = function (a) {
 	return {$: 'Posix', a: a};
 };
 var $elm$time$Time$millisToPosix = $elm$time$Time$Posix;
 var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
-<<<<<<< HEAD
 var $author$project$Main$SaveModel = F4(
 	function (notKnowingTasks, actionTasks, doneTasks, destroyedTasks) {
 		return {actionTasks: actionTasks, destroyedTasks: destroyedTasks, doneTasks: doneTasks, notKnowingTasks: notKnowingTasks};
-=======
-var $author$project$Main$init = function (_v0) {
-	return _Utils_Tuple2(
-		{
-			currentTime: $elm$time$Time$millisToPosix(0),
-			newTaskContent: '',
-			nextId: 1,
-			tasks: _List_Nil
-		},
-		$elm$core$Platform$Cmd$none);
-};
-var $author$project$Main$Tick = function (a) {
-	return {$: 'Tick', a: a};
-};
-var $elm$time$Time$Every = F2(
-	function (a, b) {
-		return {$: 'Every', a: a, b: b};
-	});
-var $elm$time$Time$State = F2(
-	function (taggers, processes) {
-		return {processes: processes, taggers: taggers};
-	});
-var $elm$core$Dict$RBEmpty_elm_builtin = {$: 'RBEmpty_elm_builtin'};
-var $elm$core$Dict$empty = $elm$core$Dict$RBEmpty_elm_builtin;
-var $elm$time$Time$init = $elm$core$Task$succeed(
-	A2($elm$time$Time$State, $elm$core$Dict$empty, $elm$core$Dict$empty));
-var $elm$core$Basics$compare = _Utils_compare;
-var $elm$core$Dict$get = F2(
-	function (targetKey, dict) {
-		get:
-		while (true) {
-			if (dict.$ === 'RBEmpty_elm_builtin') {
-				return $elm$core$Maybe$Nothing;
-			} else {
-				var key = dict.b;
-				var value = dict.c;
-				var left = dict.d;
-				var right = dict.e;
-				var _v1 = A2($elm$core$Basics$compare, targetKey, key);
-				switch (_v1.$) {
-					case 'LT':
-						var $temp$targetKey = targetKey,
-							$temp$dict = left;
-						targetKey = $temp$targetKey;
-						dict = $temp$dict;
-						continue get;
-					case 'EQ':
-						return $elm$core$Maybe$Just(value);
-					default:
-						var $temp$targetKey = targetKey,
-							$temp$dict = right;
-						targetKey = $temp$targetKey;
-						dict = $temp$dict;
-						continue get;
-				}
-			}
-		}
->>>>>>> 976d721 (remove debug)
 	});
 var $elm$core$Dict$Black = {$: 'Black'};
 var $elm$core$Dict$RBNode_elm_builtin = F5(
@@ -5340,10 +5278,7 @@ var $elm$core$Dict$balance = F5(
 			}
 		}
 	});
-<<<<<<< HEAD
 var $elm$core$Basics$compare = _Utils_compare;
-=======
->>>>>>> 976d721 (remove debug)
 var $elm$core$Dict$insertHelp = F3(
 	function (key, value, dict) {
 		if (dict.$ === 'RBEmpty_elm_builtin') {
@@ -5392,7 +5327,6 @@ var $elm$core$Dict$insert = F3(
 			return x;
 		}
 	});
-<<<<<<< HEAD
 var $elm$core$Dict$fromList = function (assocs) {
 	return A3(
 		$elm$core$List$foldl,
@@ -5567,8 +5501,6 @@ var $elm$core$Dict$get = F2(
 			}
 		}
 	});
-=======
->>>>>>> 976d721 (remove debug)
 var $elm$time$Time$addMySub = F2(
 	function (_v0, state) {
 		var interval = _v0.a;
@@ -5828,7 +5760,6 @@ var $elm$time$Time$every = F2(
 		return $elm$time$Time$subscription(
 			A2($elm$time$Time$Every, interval, tagger));
 	});
-<<<<<<< HEAD
 var $elm$json$Json$Decode$value = _Json_decodeValue;
 var $author$project$Main$loadTasks = _Platform_incomingPort('loadTasks', $elm$json$Json$Decode$value);
 var $author$project$Main$subscriptions = function (_v0) {
@@ -5881,24 +5812,10 @@ var $elm$json$Json$Encode$object = function (pairs) {
 			_Json_emptyObject(_Utils_Tuple0),
 			pairs));
 };
-=======
-var $author$project$Main$subscriptions = function (_v0) {
-	return A2($elm$time$Time$every, 1000, $author$project$Main$Tick);
-};
-var $author$project$Main$NotKnowing = {$: 'NotKnowing'};
-var $author$project$Main$Task = F4(
-	function (id, content, category, destroyedAt) {
-		return {category: category, content: content, destroyedAt: destroyedAt, id: id};
-	});
-var $author$project$Main$Destroyed = {$: 'Destroyed'};
-var $author$project$Main$Done = {$: 'Done'};
-var $elm$core$Basics$neq = _Utils_notEqual;
->>>>>>> 976d721 (remove debug)
 var $elm$time$Time$posixToMillis = function (_v0) {
 	var millis = _v0.a;
 	return millis;
 };
-<<<<<<< HEAD
 var $elm$json$Json$Encode$string = _Json_wrap;
 var $author$project$Main$encodeTask = function (task) {
 	return $elm$json$Json$Encode$object(
@@ -5948,22 +5865,12 @@ var $elm$core$Dict$filter = F2(
 				}),
 			$elm$core$Dict$empty,
 			dict);
-=======
-var $author$project$Main$expireTaskIfNeeded = F2(
-	function (currentTime, task) {
-		return ((_Utils_cmp(
-			$elm$time$Time$posixToMillis(currentTime),
-			$elm$time$Time$posixToMillis(task.destroyedAt)) > 0) && (!_Utils_eq(task.category, $author$project$Main$Done))) ? _Utils_update(
-			task,
-			{category: $author$project$Main$Destroyed}) : task;
->>>>>>> 976d721 (remove debug)
 	});
 var $author$project$Main$millisecondsInDay = ((24 * 60) * 60) * 1000;
 var $author$project$Main$getDestroyedAt = function (currentTime) {
 	return $elm$time$Time$millisToPosix(
 		$elm$time$Time$posixToMillis(currentTime) + (14 * $author$project$Main$millisecondsInDay));
 };
-<<<<<<< HEAD
 var $elm$core$Debug$log = _Debug_log;
 var $elm$core$Dict$getMin = function (dict) {
 	getMin:
@@ -6402,57 +6309,6 @@ var $elm$core$Dict$union = F2(
 	function (t1, t2) {
 		return A3($elm$core$Dict$foldl, $elm$core$Dict$insert, t2, t1);
 	});
-=======
-var $author$project$Main$moveTaskIfMatch = F3(
-	function (id, category, task) {
-		return _Utils_eq(task.id, id) ? _Utils_update(
-			task,
-			{category: category}) : task;
-	});
-var $author$project$Main$Action = {$: 'Action'};
-var $elm$core$List$filter = F2(
-	function (isGood, list) {
-		return A3(
-			$elm$core$List$foldr,
-			F2(
-				function (x, xs) {
-					return isGood(x) ? A2($elm$core$List$cons, x, xs) : xs;
-				}),
-			_List_Nil,
-			list);
-	});
-var $author$project$Main$sortTasks = function (tasks) {
-	var notKnowingList = A2(
-		$elm$core$List$filter,
-		function (t) {
-			return _Utils_eq(t.category, $author$project$Main$NotKnowing);
-		},
-		tasks);
-	var doneList = A2(
-		$elm$core$List$filter,
-		function (t) {
-			return _Utils_eq(t.category, $author$project$Main$Done);
-		},
-		tasks);
-	var destroyedList = A2(
-		$elm$core$List$filter,
-		function (t) {
-			return _Utils_eq(t.category, $author$project$Main$Destroyed);
-		},
-		tasks);
-	var actionList = A2(
-		$elm$core$List$filter,
-		function (t) {
-			return _Utils_eq(t.category, $author$project$Main$Action);
-		},
-		tasks);
-	return _Utils_ap(
-		actionList,
-		_Utils_ap(
-			notKnowingList,
-			_Utils_ap(doneList, destroyedList)));
-};
->>>>>>> 976d721 (remove debug)
 var $author$project$Main$update = F2(
 	function (msg, model) {
 		switch (msg.$) {
@@ -6460,7 +6316,6 @@ var $author$project$Main$update = F2(
 				if (model.newTaskContent === '') {
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				} else {
-<<<<<<< HEAD
 					var id = $elm$core$String$fromInt(
 						$elm$time$Time$posixToMillis(model.currentTime));
 					var newNotKnowingTasks = A3(
@@ -6480,23 +6335,6 @@ var $author$project$Main$update = F2(
 						$author$project$Main$saveTasks(
 							$author$project$Main$encodeTasks(
 								{actionTasks: model.actionTasks, destroyedTasks: model.destroyedTasks, doneTasks: model.doneTasks, notKnowingTasks: newNotKnowingTasks})));
-=======
-					var movedTasks = A2(
-						$elm$core$List$cons,
-						A4(
-							$author$project$Main$Task,
-							model.nextId,
-							model.newTaskContent,
-							$author$project$Main$NotKnowing,
-							$author$project$Main$getDestroyedAt(model.currentTime)),
-						model.tasks);
-					var updatedTaskList = $author$project$Main$sortTasks(movedTasks);
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{newTaskContent: '', nextId: model.nextId + 1, tasks: updatedTaskList}),
-						$elm$core$Platform$Cmd$none);
->>>>>>> 976d721 (remove debug)
 				}
 			case 'UpdateNewTaskContent':
 				var content = msg.a;
@@ -6505,7 +6343,6 @@ var $author$project$Main$update = F2(
 						model,
 						{newTaskContent: content}),
 					$elm$core$Platform$Cmd$none);
-<<<<<<< HEAD
 			case 'Tick':
 				var newTime = msg.a;
 				var expiringNotKnowingTasks = A2(
@@ -6575,49 +6412,12 @@ var $author$project$Main$update = F2(
 					$author$project$Main$saveTasks(
 						$author$project$Main$encodeTasks(
 							{actionTasks: tasks.actionTasks, destroyedTasks: tasks.destroyedTasks, doneTasks: tasks.doneTasks, notKnowingTasks: tasks.notKnowingTasks})));
-=======
-			case 'MoveTask':
-				var id = msg.a;
-				var category = msg.b;
-				var movedTasks = A2(
-					$elm$core$List$map,
-					A2($author$project$Main$moveTaskIfMatch, id, category),
-					model.tasks);
-				var updatedTaskList = $author$project$Main$sortTasks(movedTasks);
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							tasks: A2(
-								$elm$core$List$map,
-								A2($author$project$Main$moveTaskIfMatch, id, category),
-								updatedTaskList)
-						}),
-					$elm$core$Platform$Cmd$none);
-			default:
-				var newTime = msg.a;
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							currentTime: newTime,
-							tasks: A2(
-								$elm$core$List$map,
-								$author$project$Main$expireTaskIfNeeded(newTime),
-								model.tasks)
-						}),
-					$elm$core$Platform$Cmd$none);
->>>>>>> 976d721 (remove debug)
 		}
 	});
 var $elm$html$Html$div = _VirtualDom_node('div');
 var $elm$html$Html$h1 = _VirtualDom_node('h1');
 var $elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
 var $elm$html$Html$text = $elm$virtual_dom$VirtualDom$text;
-<<<<<<< HEAD
-=======
-var $elm$core$Debug$toString = _Debug_toString;
->>>>>>> 976d721 (remove debug)
 var $author$project$Main$AddTask = {$: 'AddTask'};
 var $author$project$Main$UpdateNewTaskContent = function (a) {
 	return {$: 'UpdateNewTaskContent', a: a};
@@ -6654,18 +6454,10 @@ var $elm$html$Html$Events$stopPropagationOn = F2(
 			event,
 			$elm$virtual_dom$VirtualDom$MayStopPropagation(decoder));
 	});
-<<<<<<< HEAD
-=======
-var $elm$json$Json$Decode$field = _Json_decodeField;
->>>>>>> 976d721 (remove debug)
 var $elm$json$Json$Decode$at = F2(
 	function (fields, decoder) {
 		return A3($elm$core$List$foldr, $elm$json$Json$Decode$field, decoder, fields);
 	});
-<<<<<<< HEAD
-=======
-var $elm$json$Json$Decode$string = _Json_decodeString;
->>>>>>> 976d721 (remove debug)
 var $elm$html$Html$Events$targetValue = A2(
 	$elm$json$Json$Decode$at,
 	_List_fromArray(
@@ -6680,10 +6472,6 @@ var $elm$html$Html$Events$onInput = function (tagger) {
 			$elm$html$Html$Events$alwaysStop,
 			A2($elm$json$Json$Decode$map, tagger, $elm$html$Html$Events$targetValue)));
 };
-<<<<<<< HEAD
-=======
-var $elm$json$Json$Encode$string = _Json_wrap;
->>>>>>> 976d721 (remove debug)
 var $elm$html$Html$Attributes$stringProperty = F2(
 	function (key, string) {
 		return A2(
@@ -6724,7 +6512,6 @@ var $author$project$Main$viewTaskInput = function (model) {
 };
 var $author$project$Main$categories = _List_fromArray(
 	[$author$project$Main$NotKnowing, $author$project$Main$Action, $author$project$Main$Done, $author$project$Main$Destroyed]);
-<<<<<<< HEAD
 var $elm$core$List$append = F2(
 	function (xs, ys) {
 		if (!ys.b) {
@@ -6736,15 +6523,12 @@ var $elm$core$List$append = F2(
 var $elm$core$List$concat = function (lists) {
 	return A3($elm$core$List$foldr, $elm$core$List$append, _List_Nil, lists);
 };
-=======
->>>>>>> 976d721 (remove debug)
 var $elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
 var $elm$html$Html$Attributes$style = $elm$virtual_dom$VirtualDom$style;
 var $elm$html$Html$table = _VirtualDom_node('table');
 var $elm$html$Html$tbody = _VirtualDom_node('tbody');
 var $elm$html$Html$thead = _VirtualDom_node('thead');
 var $elm$html$Html$tr = _VirtualDom_node('tr');
-<<<<<<< HEAD
 var $elm$core$Dict$values = function (dict) {
 	return A3(
 		$elm$core$Dict$foldr,
@@ -6754,19 +6538,6 @@ var $elm$core$Dict$values = function (dict) {
 			}),
 		_List_Nil,
 		dict);
-=======
-var $author$project$Main$categoryToString = function (category) {
-	switch (category.$) {
-		case 'NotKnowing':
-			return 'Not Knowing';
-		case 'Action':
-			return 'Action';
-		case 'Done':
-			return 'Done';
-		default:
-			return 'Destroyed';
-	}
->>>>>>> 976d721 (remove debug)
 };
 var $elm$html$Html$th = _VirtualDom_node('th');
 var $author$project$Main$viewTH = function (category) {
@@ -6803,36 +6574,22 @@ var $author$project$Main$computeTimeLeft = F2(
 		return 'Expires in ' + ($elm$core$String$fromInt(days) + (':' + ($elm$core$String$fromInt(hours) + (':' + ($elm$core$String$fromInt(minutes) + (':' + $elm$core$String$fromInt(seconds)))))));
 	});
 var $elm$html$Html$h3 = _VirtualDom_node('h3');
-<<<<<<< HEAD
 var $author$project$Main$MoveTask = F3(
 	function (a, b, c) {
 		return {$: 'MoveTask', a: a, b: b, c: c};
 	});
 var $author$project$Main$createMoveButton = F3(
 	function (taskId, oldCategory, newCategory) {
-=======
-var $author$project$Main$MoveTask = F2(
-	function (a, b) {
-		return {$: 'MoveTask', a: a, b: b};
-	});
-var $author$project$Main$createMoveButton = F2(
-	function (taskId, category) {
->>>>>>> 976d721 (remove debug)
 		return A2(
 			$elm$html$Html$button,
 			_List_fromArray(
 				[
 					$elm$html$Html$Events$onClick(
-<<<<<<< HEAD
 					A3($author$project$Main$MoveTask, taskId, oldCategory, newCategory))
-=======
-					A2($author$project$Main$MoveTask, taskId, category))
->>>>>>> 976d721 (remove debug)
 				]),
 			_List_fromArray(
 				[
 					$elm$html$Html$text(
-<<<<<<< HEAD
 					$author$project$Main$categoryToString(newCategory))
 				]));
 	});
@@ -6855,38 +6612,6 @@ var $author$project$Main$viewTaskButtons = function (task) {
 			return _List_Nil;
 	}
 };
-=======
-					$author$project$Main$categoryToString(category))
-				]));
-	});
-var $author$project$Main$isNotCurrentCategory = F2(
-	function (currentCategory, category) {
-		return !_Utils_eq(currentCategory, category);
-	});
-var $author$project$Main$viewTaskButtons = F2(
-	function (currentCategory, task) {
-		var _v0 = task.category;
-		switch (_v0.$) {
-			case 'Action':
-				return A2(
-					$elm$core$List$map,
-					$author$project$Main$createMoveButton(task.id),
-					A2(
-						$elm$core$List$filter,
-						$author$project$Main$isNotCurrentCategory(currentCategory),
-						_List_fromArray(
-							[$author$project$Main$Done, $author$project$Main$Destroyed])));
-			case 'NotKnowing':
-				return A2(
-					$elm$core$List$map,
-					$author$project$Main$createMoveButton(task.id),
-					_List_fromArray(
-						[$author$project$Main$Action, $author$project$Main$Done, $author$project$Main$Destroyed]));
-			default:
-				return _List_Nil;
-		}
-	});
->>>>>>> 976d721 (remove debug)
 var $author$project$Main$viewTask = F3(
 	function (currentTime, currentCategory, task) {
 		return A2(
@@ -6907,11 +6632,7 @@ var $author$project$Main$viewTask = F3(
 					A2(
 					$elm$html$Html$div,
 					_List_Nil,
-<<<<<<< HEAD
 					$author$project$Main$viewTaskButtons(task)),
-=======
-					A2($author$project$Main$viewTaskButtons, currentCategory, task)),
->>>>>>> 976d721 (remove debug)
 					A2(
 					$elm$html$Html$div,
 					_List_Nil,
@@ -6993,7 +6714,6 @@ var $author$project$Main$viewTaskTable = function (model) {
 				A2(
 					$elm$core$List$map,
 					$author$project$Main$viewTaskRow(model.currentTime),
-<<<<<<< HEAD
 					$elm$core$List$concat(
 						_List_fromArray(
 							[
@@ -7002,9 +6722,6 @@ var $author$project$Main$viewTaskTable = function (model) {
 								$elm$core$Dict$values(model.doneTasks),
 								$elm$core$Dict$values(model.destroyedTasks)
 							]))))
-=======
-					model.tasks))
->>>>>>> 976d721 (remove debug)
 			]));
 };
 var $author$project$Main$view = function (model) {
@@ -7021,19 +6738,9 @@ var $author$project$Main$view = function (model) {
 						$elm$html$Html$text('Task Management')
 					])),
 				$author$project$Main$viewTaskInput(model),
-<<<<<<< HEAD
-=======
-				$elm$html$Html$text(
-				$elm$core$Debug$toString(model)),
->>>>>>> 976d721 (remove debug)
 				$author$project$Main$viewTaskTable(model)
 			]));
 };
 var $author$project$Main$main = $elm$browser$Browser$element(
 	{init: $author$project$Main$init, subscriptions: $author$project$Main$subscriptions, update: $author$project$Main$update, view: $author$project$Main$view});
-<<<<<<< HEAD
 _Platform_export({'Main':{'init':$author$project$Main$main($elm$json$Json$Decode$value)(0)}});}(this));
-=======
-_Platform_export({'Main':{'init':$author$project$Main$main(
-	$elm$json$Json$Decode$succeed(_Utils_Tuple0))(0)}});}(this));
->>>>>>> 976d721 (remove debug)

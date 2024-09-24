@@ -312,10 +312,6 @@ view model =
     div []
         [ h1 [] [ text "Task Management" ]
         , viewTaskInput model
-<<<<<<< HEAD
-        , text <| Debug.toString model
-=======
->>>>>>> 976d721 (remove debug)
         , viewTaskTable model
         ]
 
