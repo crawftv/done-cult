@@ -196,8 +196,6 @@ update msg model =
                     )
 
                 Err x ->
-                    Debug.log ("Error decoding json")
-                    Debug.log (Debug.toString x)
                     ( model, Cmd.none )
 
         MoveTask taskId fromCategory toCategory ->
