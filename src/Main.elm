@@ -5,7 +5,7 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes
 import Html.Events exposing (onClick, onInput)
-import Json.Decode as Decode exposing (Decoder, decodeString, dict, keyValuePairs)
+import Json.Decode as Decode exposing (Decoder, dict)
 import Json.Decode.Pipeline exposing (required)
 import Json.Encode
 import Time
@@ -308,7 +308,7 @@ subscriptions _ =
 view : Model -> Html Msg
 view model =
     div []
-        [ h1 [] [ text "Task Management" ]
+        [ h1 [] [ text "Done" ]
         , viewTaskInput model
         , viewTaskTable model
         ]
@@ -321,14 +321,29 @@ viewTaskInput model =
         , button [ onClick AddTask ] [ text "Add Task" ]
         ]
 
+viewExpiration :  Time.Posix -> Task -> Maybe  (Html Msg)
+viewExpiration  currentTime task=
+    case task.category of
+        NotKnowing ->
+            Just <| text <| computeTimeLeft currentTime task.destroyedAt
+        Action ->
+            Just <| text <| computeTimeLeft currentTime task.destroyedAt
+        _ ->
+            Nothing
 
-viewTask : Time.Posix -> Category -> Task -> Html Msg
-viewTask currentTime currentCategory task =
-    div [ Html.Attributes.style "border" "1px solid black" ]
-        [ h3 [] [ text task.content ]
-        , div [] (viewTaskButtons task)
-        , div [] [ text <| computeTimeLeft currentTime task.destroyedAt ]
-        ]
+viewTask : Time.Posix  -> Task -> Html Msg
+viewTask currentTime  task =
+    let
+        msgs = [text task.content, div [] (viewTaskButtons task)]
+        expirationMsg =
+            case viewExpiration currentTime task of
+                Just a ->
+                    msgs ++ [a]
+                Nothing ->
+                    msgs
+
+    in
+        div [] expirationMsg
 
 
 
@@ -370,11 +385,11 @@ computeTimeLeft currentTick destroyTime =
     "Expires in "
         ++ String.fromInt days
         ++ ":"
-        ++ String.fromInt hours
+        ++ String.padLeft 2 '0' (String.fromInt hours)
         ++ ":"
-        ++ String.fromInt minutes
+        ++ String.padLeft 2 '0' ( String.fromInt minutes)
         ++ ":"
-        ++ String.fromInt seconds
+        ++ String.padLeft 2 '0' ( String.fromInt seconds)
 
 
 viewTaskButtons : Task -> List (Html Msg)
@@ -392,6 +407,11 @@ viewTaskButtons task =
 
 createMoveButton : String -> Category -> Category -> Html Msg
 createMoveButton taskId oldCategory newCategory =
+    let
+        buttonMsg =
+            case newCategory of
+                Action ->
+
     button [ onClick (MoveTask taskId oldCategory newCategory) ] [ text (categoryToString newCategory) ]
 
 categoryToString : Category -> String
@@ -407,7 +427,7 @@ categoryToString category =
             "Done"
 
         Destroyed ->
-            "Destroyed"
+            "Destroy"
 
 
 viewTH : Category -> Html Msg
@@ -440,10 +460,8 @@ viewTaskRow currentTime task =
         , viewCategoryCell currentTime Destroyed task
         ]
 
-
-viewCategoryCell : Time.Posix -> Category -> Task -> Html Msg
-viewCategoryCell currentTime category task =
-    td
+cellAttributes : Task -> Category -> List (Attribute msg)
+cellAttributes task category =
         [ Html.Attributes.style "text-align" "center"
         , Html.Attributes.style "background-color"
             (if task.category == category then
@@ -452,20 +470,43 @@ viewCategoryCell currentTime category task =
                         "#e0e0e0"
 
                     Action ->
-                        "#B1FC8EFF"
+                        "#28a745"
 
                     Done ->
-                        "#eae86b"
+                        "#FFDE60"
 
                     Destroyed ->
-                        "#7B9FE1FF"
+                        "#302EEC"
 
              else
                 "white"
             )
+        , Html.Attributes.style "color"
+            (if task.category == category then
+                    case category of
+                        NotKnowing ->
+                            "#000000"
+
+                        Action ->
+                            "#ffffff"
+
+                        Done ->
+                            "#000000"
+
+                        Destroyed ->
+                            "#fff6e4"
+
+                 else
+                    "white"
+                )
         ]
+
+viewCategoryCell : Time.Posix -> Category -> Task -> Html Msg
+viewCategoryCell currentTime category task =
+    td
+        (cellAttributes task category)
         [ if task.category == category then
-            viewTask currentTime category task
+            viewTask currentTime task
 
           else
             text ""
