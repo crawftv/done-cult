@@ -1,4 +1,4 @@
-port module Main exposing (main,taskDecoder)
+port module Main exposing (main, taskDecoder)
 
 import Browser
 import Dict exposing (Dict)
@@ -74,6 +74,14 @@ type alias Model =
     }
 
 
+type alias LoadModel =
+    { notKnowingTasks : NotKnowingTasks
+    , actionTasks : ActionTasks
+    , doneTasks : DoneTasks
+    , destroyedTasks : DestroyedTasks
+    }
+
+
 type alias SaveModel =
     { notKnowingTasks : NotKnowingTasks
     , actionTasks : ActionTasks
@@ -84,19 +92,19 @@ type alias SaveModel =
 
 init : Json.Encode.Value -> ( Model, Cmd Msg )
 init flags =
-    case Decode.decodeValue saveModelDecoder flags of
-        Ok savedModel ->
-            ( { notKnowingTasks = savedModel.notKnowingTasks
-              , actionTasks = savedModel.actionTasks
-              , doneTasks = savedModel.doneTasks
-              , destroyedTasks = savedModel.destroyedTasks
+    case Decode.decodeValue loadModelDecoder flags of
+        Ok loadModel ->
+            ( { notKnowingTasks = loadModel.notKnowingTasks
+              , actionTasks = loadModel.actionTasks
+              , doneTasks = loadModel.doneTasks
+              , destroyedTasks = loadModel.destroyedTasks
               , newTaskContent = ""
               , currentTime = Time.millisToPosix 0
               }
             , Cmd.none
             )
 
-        Err _ ->
+        Err e ->
             ( { notKnowingTasks = Dict.empty
               , actionTasks = Dict.empty
               , doneTasks = Dict.empty
@@ -106,6 +114,7 @@ init flags =
               }
             , Cmd.none
             )
+
 
 
 -- UPDATE
@@ -160,21 +169,23 @@ update msg model =
                 expiringNotKnowingTasks =
                     Dict.filter (\_ task -> Time.posixToMillis newTime > Time.posixToMillis task.destroyedAt) model.notKnowingTasks
 
-                allExpiringTasks = Dict.union expiringActionTasks expiringNotKnowingTasks
+                allExpiringTasks =
+                    Dict.union expiringActionTasks expiringNotKnowingTasks
 
                 newModel =
                     case Dict.toList allExpiringTasks of
-                        (taskId, task) :: _ ->
+                        ( taskId, task ) :: _ ->
                             let
-                                tasks = moveTasks model taskId task.category Destroyed
+                                tasks =
+                                    moveTasks model taskId task.category Destroyed
                             in
-                                { model
+                            { model
                                 | currentTime = newTime
                                 , actionTasks = tasks.actionTasks
                                 , notKnowingTasks = tasks.notKnowingTasks
                                 , doneTasks = tasks.doneTasks
                                 , destroyedTasks = tasks.destroyedTasks
-                                }
+                            }
 
                         [] ->
                             { model | currentTime = newTime }
@@ -184,7 +195,7 @@ update msg model =
             )
 
         LoadTasksFromLocalStorage json ->
-            case Decode.decodeValue saveModelDecoder json of
+            case Decode.decodeValue loadModelDecoder json of
                 Ok loadedTasks ->
                     ( { model
                         | actionTasks = loadedTasks.actionTasks
@@ -290,15 +301,23 @@ moveTasks model taskId fromCategory toCategory =
     SaveModel notKnowingTasks actionTasks doneTasks destroyedTasks
 
 
+
 -- SUBSCRIPTIONS
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
-    Sub.batch
-        [ Time.every 1000 Tick
-        , loadTasks LoadTasksFromLocalStorage
-        ]
+subscriptions model =
+    if model.currentTime == Time.millisToPosix 0 then
+        Sub.batch
+            [ Time.every 1 Tick
+            , loadTasks LoadTasksFromLocalStorage
+            ]
+
+    else
+        Sub.batch
+            [ Time.every 1000 Tick
+            , loadTasks LoadTasksFromLocalStorage
+            ]
 
 
 
@@ -307,46 +326,53 @@ subscriptions _ =
 
 view : Model -> Html Msg
 view model =
-    div []
+    div anonymousProBold
         [ h1 [] [ text "Done" ]
-        , viewTaskInput model
-        , viewTaskTable model
+        , Html.main_ []
+            [ viewTaskInput model
+            , viewTaskTable model
+            ]
         ]
 
 
 viewTaskInput : Model -> Html Msg
 viewTaskInput model =
     div []
-        [ input [ Html.Attributes.type_ "text", Html.Attributes.placeholder "New task", Html.Attributes.value model.newTaskContent, onInput UpdateNewTaskContent ] []
+        [ textarea [ Html.Attributes.placeholder "New task", Html.Attributes.value model.newTaskContent, onInput UpdateNewTaskContent ] []
         , button [ onClick AddTask ] [ text "Add Task" ]
         ]
 
-viewExpiration :  Time.Posix -> Task -> Maybe  (Html Msg)
-viewExpiration  currentTime task=
+
+viewExpiration : Time.Posix -> Task -> Maybe (Html Msg)
+viewExpiration currentTime task =
     case task.category of
         NotKnowing ->
             Just <| text <| computeTimeLeft currentTime task.destroyedAt
+
         Action ->
             Just <| text <| computeTimeLeft currentTime task.destroyedAt
+
         _ ->
             Nothing
 
-viewTask : Time.Posix  -> Task -> Html Msg
-viewTask currentTime  task =
+
+viewTask : Time.Posix -> Task -> Html Msg
+viewTask currentTime task =
     let
-        msgs = [text task.content, div [] (viewTaskButtons task)]
+        msgs =
+            [ h2 [ Html.Attributes.style "font-weight" "300" ] [ text task.content ]
+            , div [] (viewTaskButtons task)
+            ]
+
         expirationMsg =
             case viewExpiration currentTime task of
                 Just a ->
-                    msgs ++ [a]
+                    msgs ++ [ a ]
+
                 Nothing ->
                     msgs
-
     in
-        div [] expirationMsg
-
-
-
+    div [] expirationMsg
 
 
 computeTimeLeft : Time.Posix -> Time.Posix -> String
@@ -387,32 +413,32 @@ computeTimeLeft currentTick destroyTime =
         ++ ":"
         ++ String.padLeft 2 '0' (String.fromInt hours)
         ++ ":"
-        ++ String.padLeft 2 '0' ( String.fromInt minutes)
+        ++ String.padLeft 2 '0' (String.fromInt minutes)
         ++ ":"
-        ++ String.padLeft 2 '0' ( String.fromInt seconds)
+        ++ String.padLeft 2 '0' (String.fromInt seconds)
 
 
 viewTaskButtons : Task -> List (Html Msg)
 viewTaskButtons task =
     case task.category of
         Action ->
-            List.map (createMoveButton task.id task.category) [ Done, Destroyed ]
+            List.map (createMoveButton task task.category) [ Done, Destroyed ]
 
         NotKnowing ->
-            List.map (createMoveButton task.id task.category) [ Action, Done, Destroyed ]
+            List.map (createMoveButton task task.category) [ Action, Done, Destroyed ]
 
         _ ->
             []
 
 
-createMoveButton : String -> Category -> Category -> Html Msg
-createMoveButton taskId oldCategory newCategory =
+createMoveButton : Task -> Category -> Category -> Html Msg
+createMoveButton task oldCategory newCategory =
     let
-        buttonMsg =
-            case newCategory of
-                Action ->
+        attrs =
+            [ onClick (MoveTask task.id oldCategory newCategory) ] ++ moveTaskButtonAttributes newCategory ++ anonymousProRegularButton
+    in
+    button attrs [ text (categoryToString newCategory) ]
 
-    button [ onClick (MoveTask taskId oldCategory newCategory) ] [ text (categoryToString newCategory) ]
 
 categoryToString : Category -> String
 categoryToString category =
@@ -432,12 +458,23 @@ categoryToString category =
 
 viewTH : Category -> Html Msg
 viewTH category =
-    th [] [ h1 [] [ text (categoryToString category) ] ]
+    th
+        [ Html.Attributes.style "width" "25%" -- Set each column to 25% width
+        , Html.Attributes.style "padding" "10px"
+        , Html.Attributes.style "box-sizing" "border-box"
+        ]
+        [ h1 [] [ text (categoryToString category) ] ]
 
 
 viewTaskTable : Model -> Html Msg
 viewTaskTable model =
-    table [ Html.Attributes.style "width" "100%", Html.Attributes.style "border-collapse" "collapse" ]
+    table
+        ([ Html.Attributes.style "width" "100%"
+         , Html.Attributes.style "border-collapse" "collapse"
+         , Html.Attributes.style "table-layout" "fixed" -- Add this line to enforce fixed layout
+         ]
+            ++ anonymousProRegular
+        )
         [ thead []
             [ tr [] <| List.map viewTH categories ]
         , tbody [] <|
@@ -460,46 +497,85 @@ viewTaskRow currentTime task =
         , viewCategoryCell currentTime Destroyed task
         ]
 
+
+moveTaskButtonAttributes : Category -> List (Attribute msg)
+moveTaskButtonAttributes category =
+    let
+        backgroundColor =
+            case category of
+                NotKnowing ->
+                    beigeStyle
+
+                Action ->
+                    greenStyle
+
+                Done ->
+                    goldStyle
+
+                Destroyed ->
+                    blueStyle
+
+        fontColort =
+            case category of
+                NotKnowing ->
+                    "#000000"
+
+                Action ->
+                    "#ffffff"
+
+                Done ->
+                    "#000000"
+
+                Destroyed ->
+                    whiteStyle
+    in
+    [ Html.Attributes.style "text-align" "center"
+    , Html.Attributes.style "background-color" backgroundColor
+    , Html.Attributes.style "color" fontColort
+    ]
+
+
 cellAttributes : Task -> Category -> List (Attribute msg)
 cellAttributes task category =
-        [ Html.Attributes.style "text-align" "center"
-        , Html.Attributes.style "background-color"
-            (if task.category == category then
-                case category of
-                    NotKnowing ->
-                        "#e0e0e0"
+    [ Html.Attributes.style "text-align" "center"
+    , Html.Attributes.style "background-color"
+        (if task.category == category then
+            case category of
+                NotKnowing ->
+                    beigeStyle
 
-                    Action ->
-                        "#28a745"
+                Action ->
+                    greenStyle
 
-                    Done ->
-                        "#FFDE60"
+                Done ->
+                    goldStyle
 
-                    Destroyed ->
-                        "#302EEC"
+                Destroyed ->
+                    blueStyle
 
-             else
-                "white"
-            )
-        , Html.Attributes.style "color"
-            (if task.category == category then
-                    case category of
-                        NotKnowing ->
-                            "#000000"
+         else
+            "white"
+        )
+    , Html.Attributes.style "color"
+        (if task.category == category then
+            case category of
+                NotKnowing ->
+                    "#000000"
 
-                        Action ->
-                            "#ffffff"
+                Action ->
+                    "#ffffff"
 
-                        Done ->
-                            "#000000"
+                Done ->
+                    "#000000"
 
-                        Destroyed ->
-                            "#fff6e4"
+                Destroyed ->
+                    whiteStyle
 
-                 else
-                    "white"
-                )
-        ]
+         else
+            "#000000"
+        )
+    ]
+
 
 viewCategoryCell : Time.Posix -> Category -> Task -> Html Msg
 viewCategoryCell currentTime category task =
@@ -593,13 +669,14 @@ taskDecoder =
         |> required "destroyedAt" posixDecoder
 
 
-saveModelDecoder : Decode.Decoder SaveModel
-saveModelDecoder =
-    Decode.succeed SaveModel
+loadModelDecoder : Decode.Decoder LoadModel
+loadModelDecoder =
+    Decode.succeed LoadModel
         |> required "notKnowingTasks" dictTaskDecoder
         |> required "actionTasks" dictTaskDecoder
         |> required "doneTasks" dictTaskDecoder
         |> required "destroyedTasks" dictTaskDecoder
+
 
 millisecondsInDay =
     24 * 60 * 60 * 1000
@@ -611,3 +688,67 @@ millisecondsInHour =
 
 millisecondsInMinute =
     60 * 1000
+
+
+anonymousProRegular : List (Html.Attribute msg)
+anonymousProRegular =
+    [ Html.Attributes.style "font-family" "\"Anonymous Pro\", monospace"
+    , Html.Attributes.style "font-weight" "400"
+    , Html.Attributes.style "font-style" "normal"
+    ]
+
+
+anonymousProRegularButton : List (Html.Attribute msg)
+anonymousProRegularButton =
+    [ Html.Attributes.style "font-family" "\"Anonymous Pro\", monospace"
+    , Html.Attributes.style "font-weight" "400"
+    , Html.Attributes.style "font-style" "normal"
+    ]
+
+
+anonymousProBold : List (Html.Attribute msg)
+anonymousProBold =
+    [ Html.Attributes.style "font-family" "\"Anonymous Pro\", monospace"
+    , Html.Attributes.style "font-weight" "700"
+    , Html.Attributes.style "font-style" "normal"
+    ]
+
+
+anonymousProRegularItalic : List (Html.Attribute msg)
+anonymousProRegularItalic =
+    [ Html.Attributes.style "font-family" "\"Anonymous Pro\", monospace"
+    , Html.Attributes.style "font-weight" "400"
+    , Html.Attributes.style "font-style" "italic"
+    ]
+
+
+anonymousProBoldItalic : List (Html.Attribute msg)
+anonymousProBoldItalic =
+    [ Html.Attributes.style "font-family" "\"Anonymous Pro\", monospace"
+    , Html.Attributes.style "font-weight" "700"
+    , Html.Attributes.style "font-style" "italic"
+    ]
+
+
+blueStyle =
+    "#302EEC"
+
+
+beigeStyle =
+    "#fff6e4"
+
+
+goldStyle =
+    "#FFDE60"
+
+
+greenStyle =
+    "#28a745"
+
+
+redStyle =
+    "linear-gradient(to bottom, #ff4536 0%, #eb4033 100%)"
+
+
+whiteStyle =
+    "white"
