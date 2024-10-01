@@ -340,7 +340,7 @@ view model =
 viewTaskInput : Model -> Html Msg
 viewTaskInput model =
     div []
-        [ textarea [ Html.Attributes.placeholder "New task", Html.Attributes.value model.newTaskContent, onInput UpdateNewTaskContent ] []
+        [ textarea [ Html.Attributes.placeholder "Write in New Task. Input support Markdown", Html.Attributes.value model.newTaskContent, onInput UpdateNewTaskContent ] []
         , button [ onClick AddTask ] [ text "Add Task" ]
         ]
 

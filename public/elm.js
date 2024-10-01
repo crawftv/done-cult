@@ -6645,7 +6645,7 @@ var $author$project$Main$viewTaskInput = function (model) {
 				$elm$html$Html$textarea,
 				_List_fromArray(
 					[
-						$elm$html$Html$Attributes$placeholder('New task'),
+						$elm$html$Html$Attributes$placeholder('Write in New Task. Input support Markdown'),
 						$elm$html$Html$Attributes$value(model.newTaskContent),
 						$elm$html$Html$Events$onInput($author$project$Main$UpdateNewTaskContent)
 					]),
