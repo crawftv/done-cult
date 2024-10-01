@@ -5943,7 +5943,7 @@ var $author$project$Main$categoryToString = function (category) {
 		case 'Done':
 			return 'Done';
 		default:
-			return 'Destroy';
+			return 'Destroyed';
 	}
 };
 var $elm$json$Json$Encode$int = _Json_wrap;

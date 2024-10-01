@@ -21,21 +21,22 @@
 </body>
 
 <script>
-    function generateTask(content, category) {
-  const now = Date.now();
+    function generateTask(content, category, timestamp) {
   return {
-    id: now.toString(),
+    id: timestamp.toString(),
     content: content,
     category: category,
-    destroyedAt: now + (14 * 24 * 60 * 60 * 1000) // 14 days from now
+    destroyedAt: timestamp + (14 * 24 * 60 * 60 * 1000) // 14 days from now
   };
 }
 
 function createTasks(taskDataArray) {
   const tasks = {};
+  let timestamp = Date.now();
   taskDataArray.forEach(([content, category]) => {
-    const key = Date.now().toString();
-    tasks[key] = generateTask(content, category);
+    const key = timestamp.toString();
+    tasks[key] = generateTask(content, category, timestamp);
+    timestamp -= 1000; // Subtract 1 second for the next task
   });
   return tasks;
 }
@@ -57,9 +58,9 @@ const defaultTasks = {
     ["Destroyed Task. ( A task you decided not worth the time or impossible)", "Destroyed"]
   ])
 };
+
 var storedData = localStorage.getItem('Tasks');
 var flags = storedData ? JSON.parse(storedData) : defaultTasks;
-
 
 const app = Elm.Main.init({
 node: document.getElementById('app'),

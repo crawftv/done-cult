@@ -457,7 +457,7 @@ categoryToString category =
             "Done"
 
         Destroyed ->
-            "Destroy"
+            "Destroyed"
 
 
 viewTH : Category -> Html Msg
