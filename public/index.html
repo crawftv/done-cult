@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+          content="Done uses the principles of the 'Cult of Done Manifesto' to embrace action, overcome perfectionism, and achieve rapid completion in your projects and ideas.">
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Anonymous+Pro:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+          rel="stylesheet">
+    <title>Done</title>
+    <script src="/elm.js"></script>
+</head>
+
+<body>
+<div id="app"></div>
+</body>
+
+<script>
+    function generateTask(content, category) {
+  const now = Date.now();
+  return {
+    id: now.toString(),
+    content: content,
+    category: category,
+    destroyedAt: now + (14 * 24 * 60 * 60 * 1000) // 14 days from now
+  };
+}
+
+function createTasks(taskDataArray) {
+  const tasks = {};
+  taskDataArray.forEach(([content, category]) => {
+    const key = Date.now().toString();
+    tasks[key] = generateTask(content, category);
+  });
+  return tasks;
+}
+
+const defaultTasks = {
+  notKnowingTasks: createTasks([
+    ["Read the [Done Manifesto](\\done-manifesto.html)", "Not Knowing"],
+    ["Destroy This Task", "Not Knowing"],
+    ["Mark this Task as Done.", "Not Knowing"]
+  ]),
+  actionTasks: createTasks([
+    ["Read this Task: (When you've read this Task, mark as done).", "Action"],
+    ["Destroy This task. ( you started this task and decided finishing is not worth it.)", "Action"]
+  ]),
+  doneTasks: createTasks([
+    ["Done Task. (a task you've finished)", "Done"]
+  ]),
+  destroyedTasks: createTasks([
+    ["Destroyed Task. ( A task you decided not worth the time or impossible)", "Destroyed"]
+  ])
+};
+var storedData = localStorage.getItem('Tasks');
+var flags = storedData ? JSON.parse(storedData) : defaultTasks;
+
+
+const app = Elm.Main.init({
+node: document.getElementById('app'),
+flags: flags
+});
+app.ports.saveTasks.subscribe(function(tasks) {
+localStorage.setItem('Tasks', JSON.stringify(tasks));
+});
+app.ports.loadTasks.send(JSON.parse(localStorage.getItem('Tasks')));
+</script>
+</html>

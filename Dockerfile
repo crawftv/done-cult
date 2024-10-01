@@ -11,9 +11,9 @@ FROM done_cult AS runtime_base
 COPY nginx.conf                 /etc/nginx/nginx.conf
 
 # Copy elm files
-COPY public/                    /app/public/
-COPY index.html                 /app/index.html
-RUN chmod -R 755 /app/public
+COPY public/                    /app/
+
+RUN chmod -R 755 /app
 
 # Copy supervisord configuration
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf

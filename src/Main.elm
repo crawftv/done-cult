@@ -3,11 +3,12 @@ port module Main exposing (main, taskDecoder)
 import Browser
 import Dict exposing (Dict)
 import Html exposing (..)
-import Html.Attributes
+import Html.Attributes exposing (class)
 import Html.Events exposing (onClick, onInput)
 import Json.Decode as Decode exposing (Decoder, dict)
 import Json.Decode.Pipeline exposing (required)
 import Json.Encode
+import Markdown
 import Time
 
 
@@ -105,6 +106,7 @@ init flags =
             )
 
         Err e ->
+            Debug.log (Decode.errorToString e)
             ( { notKnowingTasks = Dict.empty
               , actionTasks = Dict.empty
               , doneTasks = Dict.empty
@@ -360,7 +362,9 @@ viewTask : Time.Posix -> Task -> Html Msg
 viewTask currentTime task =
     let
         msgs =
-            [ h2 [ Html.Attributes.style "font-weight" "300" ] [ text task.content ]
+            [ div (anonymousProRegular )
+             [(Markdown.toHtml [Html.Attributes.style "display" "inline"] task.content)]
+
             , div [] (viewTaskButtons task)
             ]
 
@@ -437,7 +441,7 @@ createMoveButton task oldCategory newCategory =
         attrs =
             [ onClick (MoveTask task.id oldCategory newCategory) ] ++ moveTaskButtonAttributes newCategory ++ anonymousProRegularButton
     in
-    button attrs [ text (categoryToString newCategory) ]
+        button attrs [ text (categoryToString newCategory) ]
 
 
 categoryToString : Category -> String
@@ -470,7 +474,8 @@ viewTaskTable : Model -> Html Msg
 viewTaskTable model =
     table
         ([ Html.Attributes.style "width" "100%"
-         , Html.Attributes.style "border-collapse" "collapse"
+          , Html.Attributes.style "border-collapse" "separate"  -- Change this from "collapse" to "separate"
+         , Html.Attributes.style "border-spacing" "10px"  -- Add this line for spacing between cells
          , Html.Attributes.style "table-layout" "fixed" -- Add this line to enforce fixed layout
          ]
             ++ anonymousProRegular
@@ -574,13 +579,32 @@ cellAttributes task category =
          else
             "#000000"
         )
-    ]
+       , Html.Attributes.style "20px solid"
+       (if task.category == category then
+            case category of
+                NotKnowing ->
+                      "#000000" --beigeBorderStyle
+                Action ->
+                    greenStyle
+
+                Done ->
+                    goldStyle
+
+                Destroyed ->
+                    blueStyle
+        else
+            "#000000"
+       )
+       ]
 
 
 viewCategoryCell : Time.Posix -> Category -> Task -> Html Msg
 viewCategoryCell currentTime category task =
     td
-        (cellAttributes task category)
+        (cellAttributes task category ++
+         [ Html.Attributes.style "padding" "10px"  -- Add padding inside cells
+         , Html.Attributes.style "border-radius" "5px"  -- Optional: add rounded corners
+         ])
         [ if task.category == category then
             viewTask currentTime task
 
@@ -729,14 +753,14 @@ anonymousProBoldItalic =
     , Html.Attributes.style "font-style" "italic"
     ]
 
-
 blueStyle =
     "#302EEC"
-
 
 beigeStyle =
     "#fff6e4"
 
+beigeBorderStyle =
+    "#8A8161FF"
 
 goldStyle =
     "#FFDE60"
