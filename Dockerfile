@@ -12,6 +12,8 @@ COPY nginx.conf                 /etc/nginx/nginx.conf
 
 # Copy elm files
 COPY public/                    /app/
+COPY index.html                 /app/index.html
+COPY elm.js                     /app/elm.js
 
 RUN chmod -R 755 /app
 

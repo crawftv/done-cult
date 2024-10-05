@@ -5341,9 +5341,17 @@ var $elm$core$Task$perform = F2(
 				A2($elm$core$Task$map, toMessage, task)));
 	});
 var $elm$browser$Browser$element = _Browser_element;
+var $author$project$Main$GotViewport = function (a) {
+	return {$: 'GotViewport', a: a};
+};
+var $author$project$Main$Tick = function (a) {
+	return {$: 'Tick', a: a};
+};
+var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $elm$json$Json$Decode$decodeValue = _Json_run;
 var $elm$core$Dict$RBEmpty_elm_builtin = {$: 'RBEmpty_elm_builtin'};
 var $elm$core$Dict$empty = $elm$core$Dict$RBEmpty_elm_builtin;
+var $elm$browser$Browser$Dom$getViewport = _Browser_withWindow(_Browser_getViewport);
 var $author$project$Main$LoadModel = F4(
 	function (notKnowingTasks, actionTasks, doneTasks, destroyedTasks) {
 		return {actionTasks: actionTasks, destroyedTasks: destroyedTasks, doneTasks: doneTasks, notKnowingTasks: notKnowingTasks};
@@ -5561,8 +5569,18 @@ var $author$project$Main$loadModelDecoder = A3(
 				$author$project$Main$dictTaskDecoder,
 				$elm$json$Json$Decode$succeed($author$project$Main$LoadModel)))));
 var $elm$core$Debug$log = _Debug_log;
-var $elm$core$Platform$Cmd$batch = _Platform_batch;
-var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
+var $elm$time$Time$Name = function (a) {
+	return {$: 'Name', a: a};
+};
+var $elm$time$Time$Offset = function (a) {
+	return {$: 'Offset', a: a};
+};
+var $elm$time$Time$Zone = F2(
+	function (a, b) {
+		return {$: 'Zone', a: a, b: b};
+	});
+var $elm$time$Time$customZone = $elm$time$Time$Zone;
+var $elm$time$Time$now = _Time_now($elm$time$Time$millisToPosix);
 var $author$project$Main$init = function (flags) {
 	var _v0 = A2($elm$json$Json$Decode$decodeValue, $author$project$Main$loadModelDecoder, flags);
 	if (_v0.$ === 'Ok') {
@@ -5574,9 +5592,15 @@ var $author$project$Main$init = function (flags) {
 				destroyedTasks: loadModel.destroyedTasks,
 				doneTasks: loadModel.doneTasks,
 				newTaskContent: '',
-				notKnowingTasks: loadModel.notKnowingTasks
+				notKnowingTasks: loadModel.notKnowingTasks,
+				windowWidth: 1024
 			},
-			$elm$core$Platform$Cmd$none);
+			$elm$core$Platform$Cmd$batch(
+				_List_fromArray(
+					[
+						A2($elm$core$Task$perform, $author$project$Main$GotViewport, $elm$browser$Browser$Dom$getViewport),
+						A2($elm$core$Task$perform, $author$project$Main$Tick, $elm$time$Time$now)
+					])));
 	} else {
 		var e = _v0.a;
 		return A2(
@@ -5589,17 +5613,19 @@ var $author$project$Main$init = function (flags) {
 					destroyedTasks: $elm$core$Dict$empty,
 					doneTasks: $elm$core$Dict$empty,
 					newTaskContent: '',
-					notKnowingTasks: $elm$core$Dict$empty
+					notKnowingTasks: $elm$core$Dict$empty,
+					windowWidth: 1024
 				},
-				$elm$core$Platform$Cmd$none));
+				A2($elm$core$Task$perform, $author$project$Main$GotViewport, $elm$browser$Browser$Dom$getViewport)));
 	}
 };
 var $author$project$Main$LoadTasksFromLocalStorage = function (a) {
 	return {$: 'LoadTasksFromLocalStorage', a: a};
 };
-var $author$project$Main$Tick = function (a) {
-	return {$: 'Tick', a: a};
-};
+var $author$project$Main$WindowResized = F2(
+	function (a, b) {
+		return {$: 'WindowResized', a: a, b: b};
+	});
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$time$Time$Every = F2(
 	function (a, b) {
@@ -5751,17 +5777,6 @@ var $elm$core$Dict$merge = F6(
 			leftovers);
 	});
 var $elm$core$Platform$sendToSelf = _Platform_sendToSelf;
-var $elm$time$Time$Name = function (a) {
-	return {$: 'Name', a: a};
-};
-var $elm$time$Time$Offset = function (a) {
-	return {$: 'Offset', a: a};
-};
-var $elm$time$Time$Zone = F2(
-	function (a, b) {
-		return {$: 'Zone', a: a, b: b};
-	});
-var $elm$time$Time$customZone = $elm$time$Time$Zone;
 var $elm$time$Time$setInterval = _Time_setInterval;
 var $elm$core$Process$spawn = _Scheduler_spawn;
 var $elm$time$Time$spawnHelp = F3(
@@ -5852,7 +5867,6 @@ var $elm$time$Time$onEffects = F3(
 				},
 				killTask));
 	});
-var $elm$time$Time$now = _Time_now($elm$time$Time$millisToPosix);
 var $elm$time$Time$onSelfMsg = F3(
 	function (router, interval, state) {
 		var _v0 = A2($elm$core$Dict$get, interval, state.taggers);
@@ -5903,19 +5917,216 @@ var $elm$time$Time$every = F2(
 	});
 var $elm$json$Json$Decode$value = _Json_decodeValue;
 var $author$project$Main$loadTasks = _Platform_incomingPort('loadTasks', $elm$json$Json$Decode$value);
-var $author$project$Main$subscriptions = function (model) {
-	return _Utils_eq(
-		model.currentTime,
-		$elm$time$Time$millisToPosix(0)) ? $elm$core$Platform$Sub$batch(
-		_List_fromArray(
-			[
-				A2($elm$time$Time$every, 1, $author$project$Main$Tick),
-				$author$project$Main$loadTasks($author$project$Main$LoadTasksFromLocalStorage)
-			])) : $elm$core$Platform$Sub$batch(
+var $elm$browser$Browser$Events$Window = {$: 'Window'};
+var $elm$browser$Browser$Events$MySub = F3(
+	function (a, b, c) {
+		return {$: 'MySub', a: a, b: b, c: c};
+	});
+var $elm$browser$Browser$Events$State = F2(
+	function (subs, pids) {
+		return {pids: pids, subs: subs};
+	});
+var $elm$browser$Browser$Events$init = $elm$core$Task$succeed(
+	A2($elm$browser$Browser$Events$State, _List_Nil, $elm$core$Dict$empty));
+var $elm$browser$Browser$Events$nodeToKey = function (node) {
+	if (node.$ === 'Document') {
+		return 'd_';
+	} else {
+		return 'w_';
+	}
+};
+var $elm$browser$Browser$Events$addKey = function (sub) {
+	var node = sub.a;
+	var name = sub.b;
+	return _Utils_Tuple2(
+		_Utils_ap(
+			$elm$browser$Browser$Events$nodeToKey(node),
+			name),
+		sub);
+};
+var $elm$browser$Browser$Events$Event = F2(
+	function (key, event) {
+		return {event: event, key: key};
+	});
+var $elm$browser$Browser$Events$spawn = F3(
+	function (router, key, _v0) {
+		var node = _v0.a;
+		var name = _v0.b;
+		var actualNode = function () {
+			if (node.$ === 'Document') {
+				return _Browser_doc;
+			} else {
+				return _Browser_window;
+			}
+		}();
+		return A2(
+			$elm$core$Task$map,
+			function (value) {
+				return _Utils_Tuple2(key, value);
+			},
+			A3(
+				_Browser_on,
+				actualNode,
+				name,
+				function (event) {
+					return A2(
+						$elm$core$Platform$sendToSelf,
+						router,
+						A2($elm$browser$Browser$Events$Event, key, event));
+				}));
+	});
+var $elm$core$Dict$union = F2(
+	function (t1, t2) {
+		return A3($elm$core$Dict$foldl, $elm$core$Dict$insert, t2, t1);
+	});
+var $elm$browser$Browser$Events$onEffects = F3(
+	function (router, subs, state) {
+		var stepRight = F3(
+			function (key, sub, _v6) {
+				var deads = _v6.a;
+				var lives = _v6.b;
+				var news = _v6.c;
+				return _Utils_Tuple3(
+					deads,
+					lives,
+					A2(
+						$elm$core$List$cons,
+						A3($elm$browser$Browser$Events$spawn, router, key, sub),
+						news));
+			});
+		var stepLeft = F3(
+			function (_v4, pid, _v5) {
+				var deads = _v5.a;
+				var lives = _v5.b;
+				var news = _v5.c;
+				return _Utils_Tuple3(
+					A2($elm$core$List$cons, pid, deads),
+					lives,
+					news);
+			});
+		var stepBoth = F4(
+			function (key, pid, _v2, _v3) {
+				var deads = _v3.a;
+				var lives = _v3.b;
+				var news = _v3.c;
+				return _Utils_Tuple3(
+					deads,
+					A3($elm$core$Dict$insert, key, pid, lives),
+					news);
+			});
+		var newSubs = A2($elm$core$List$map, $elm$browser$Browser$Events$addKey, subs);
+		var _v0 = A6(
+			$elm$core$Dict$merge,
+			stepLeft,
+			stepBoth,
+			stepRight,
+			state.pids,
+			$elm$core$Dict$fromList(newSubs),
+			_Utils_Tuple3(_List_Nil, $elm$core$Dict$empty, _List_Nil));
+		var deadPids = _v0.a;
+		var livePids = _v0.b;
+		var makeNewPids = _v0.c;
+		return A2(
+			$elm$core$Task$andThen,
+			function (pids) {
+				return $elm$core$Task$succeed(
+					A2(
+						$elm$browser$Browser$Events$State,
+						newSubs,
+						A2(
+							$elm$core$Dict$union,
+							livePids,
+							$elm$core$Dict$fromList(pids))));
+			},
+			A2(
+				$elm$core$Task$andThen,
+				function (_v1) {
+					return $elm$core$Task$sequence(makeNewPids);
+				},
+				$elm$core$Task$sequence(
+					A2($elm$core$List$map, $elm$core$Process$kill, deadPids))));
+	});
+var $elm$core$List$maybeCons = F3(
+	function (f, mx, xs) {
+		var _v0 = f(mx);
+		if (_v0.$ === 'Just') {
+			var x = _v0.a;
+			return A2($elm$core$List$cons, x, xs);
+		} else {
+			return xs;
+		}
+	});
+var $elm$core$List$filterMap = F2(
+	function (f, xs) {
+		return A3(
+			$elm$core$List$foldr,
+			$elm$core$List$maybeCons(f),
+			_List_Nil,
+			xs);
+	});
+var $elm$browser$Browser$Events$onSelfMsg = F3(
+	function (router, _v0, state) {
+		var key = _v0.key;
+		var event = _v0.event;
+		var toMessage = function (_v2) {
+			var subKey = _v2.a;
+			var _v3 = _v2.b;
+			var node = _v3.a;
+			var name = _v3.b;
+			var decoder = _v3.c;
+			return _Utils_eq(subKey, key) ? A2(_Browser_decodeEvent, decoder, event) : $elm$core$Maybe$Nothing;
+		};
+		var messages = A2($elm$core$List$filterMap, toMessage, state.subs);
+		return A2(
+			$elm$core$Task$andThen,
+			function (_v1) {
+				return $elm$core$Task$succeed(state);
+			},
+			$elm$core$Task$sequence(
+				A2(
+					$elm$core$List$map,
+					$elm$core$Platform$sendToApp(router),
+					messages)));
+	});
+var $elm$browser$Browser$Events$subMap = F2(
+	function (func, _v0) {
+		var node = _v0.a;
+		var name = _v0.b;
+		var decoder = _v0.c;
+		return A3(
+			$elm$browser$Browser$Events$MySub,
+			node,
+			name,
+			A2($elm$json$Json$Decode$map, func, decoder));
+	});
+_Platform_effectManagers['Browser.Events'] = _Platform_createManager($elm$browser$Browser$Events$init, $elm$browser$Browser$Events$onEffects, $elm$browser$Browser$Events$onSelfMsg, 0, $elm$browser$Browser$Events$subMap);
+var $elm$browser$Browser$Events$subscription = _Platform_leaf('Browser.Events');
+var $elm$browser$Browser$Events$on = F3(
+	function (node, name, decoder) {
+		return $elm$browser$Browser$Events$subscription(
+			A3($elm$browser$Browser$Events$MySub, node, name, decoder));
+	});
+var $elm$browser$Browser$Events$onResize = function (func) {
+	return A3(
+		$elm$browser$Browser$Events$on,
+		$elm$browser$Browser$Events$Window,
+		'resize',
+		A2(
+			$elm$json$Json$Decode$field,
+			'target',
+			A3(
+				$elm$json$Json$Decode$map2,
+				func,
+				A2($elm$json$Json$Decode$field, 'innerWidth', $elm$json$Json$Decode$int),
+				A2($elm$json$Json$Decode$field, 'innerHeight', $elm$json$Json$Decode$int))));
+};
+var $author$project$Main$subscriptions = function (_v0) {
+	return $elm$core$Platform$Sub$batch(
 		_List_fromArray(
 			[
 				A2($elm$time$Time$every, 1000, $author$project$Main$Tick),
-				$author$project$Main$loadTasks($author$project$Main$LoadTasksFromLocalStorage)
+				$author$project$Main$loadTasks($author$project$Main$LoadTasksFromLocalStorage),
+				$elm$browser$Browser$Events$onResize($author$project$Main$WindowResized)
 			]));
 };
 var $elm$json$Json$Encode$dict = F3(
@@ -6454,11 +6665,9 @@ var $author$project$Main$moveTasks = F4(
 		var doneTasks = _Utils_eq(fromCategory, $author$project$Main$Done) ? newFromDict : (_Utils_eq(toCategory, $author$project$Main$Done) ? newToDict : model.doneTasks);
 		return A4($author$project$Main$SaveModel, notKnowingTasks, actionTasks, doneTasks, destroyedTasks);
 	});
+var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
+var $elm$core$Basics$round = _Basics_round;
 var $author$project$Main$saveTasks = _Platform_outgoingPort('saveTasks', $elm$core$Basics$identity);
-var $elm$core$Dict$union = F2(
-	function (t1, t2) {
-		return A3($elm$core$Dict$foldl, $elm$core$Dict$insert, t2, t1);
-	});
 var $author$project$Main$update = F2(
 	function (msg, model) {
 		switch (msg.$) {
@@ -6545,7 +6754,7 @@ var $author$project$Main$update = F2(
 					var x = _v5.a;
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				}
-			default:
+			case 'MoveTask':
 				var taskId = msg.a;
 				var fromCategory = msg.b;
 				var toCategory = msg.c;
@@ -6557,6 +6766,22 @@ var $author$project$Main$update = F2(
 					$author$project$Main$saveTasks(
 						$author$project$Main$encodeTasks(
 							{actionTasks: tasks.actionTasks, destroyedTasks: tasks.destroyedTasks, doneTasks: tasks.doneTasks, notKnowingTasks: tasks.notKnowingTasks})));
+			case 'WindowResized':
+				var width = msg.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{windowWidth: width}),
+					$elm$core$Platform$Cmd$none);
+			default:
+				var viewport = msg.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							windowWidth: $elm$core$Basics$round(viewport.viewport.width)
+						}),
+					$elm$core$Platform$Cmd$none);
 		}
 	});
 var $elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
@@ -6569,122 +6794,14 @@ var $author$project$Main$anonymousProBold = _List_fromArray(
 	]);
 var $elm$html$Html$div = _VirtualDom_node('div');
 var $elm$html$Html$h1 = _VirtualDom_node('h1');
+var $author$project$Main$isMobileView = function (model) {
+	return model.windowWidth < 768;
+};
 var $elm$html$Html$main_ = _VirtualDom_node('main');
+var $elm$core$Basics$not = _Basics_not;
 var $elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
 var $elm$html$Html$text = $elm$virtual_dom$VirtualDom$text;
-var $author$project$Main$AddTask = {$: 'AddTask'};
-var $author$project$Main$UpdateNewTaskContent = function (a) {
-	return {$: 'UpdateNewTaskContent', a: a};
-};
-var $elm$html$Html$button = _VirtualDom_node('button');
-var $elm$virtual_dom$VirtualDom$Normal = function (a) {
-	return {$: 'Normal', a: a};
-};
-var $elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
-var $elm$html$Html$Events$on = F2(
-	function (event, decoder) {
-		return A2(
-			$elm$virtual_dom$VirtualDom$on,
-			event,
-			$elm$virtual_dom$VirtualDom$Normal(decoder));
-	});
-var $elm$html$Html$Events$onClick = function (msg) {
-	return A2(
-		$elm$html$Html$Events$on,
-		'click',
-		$elm$json$Json$Decode$succeed(msg));
-};
-var $elm$html$Html$Events$alwaysStop = function (x) {
-	return _Utils_Tuple2(x, true);
-};
-var $elm$virtual_dom$VirtualDom$MayStopPropagation = function (a) {
-	return {$: 'MayStopPropagation', a: a};
-};
-var $elm$html$Html$Events$stopPropagationOn = F2(
-	function (event, decoder) {
-		return A2(
-			$elm$virtual_dom$VirtualDom$on,
-			event,
-			$elm$virtual_dom$VirtualDom$MayStopPropagation(decoder));
-	});
-var $elm$json$Json$Decode$at = F2(
-	function (fields, decoder) {
-		return A3($elm$core$List$foldr, $elm$json$Json$Decode$field, decoder, fields);
-	});
-var $elm$html$Html$Events$targetValue = A2(
-	$elm$json$Json$Decode$at,
-	_List_fromArray(
-		['target', 'value']),
-	$elm$json$Json$Decode$string);
-var $elm$html$Html$Events$onInput = function (tagger) {
-	return A2(
-		$elm$html$Html$Events$stopPropagationOn,
-		'input',
-		A2(
-			$elm$json$Json$Decode$map,
-			$elm$html$Html$Events$alwaysStop,
-			A2($elm$json$Json$Decode$map, tagger, $elm$html$Html$Events$targetValue)));
-};
-var $elm$html$Html$Attributes$stringProperty = F2(
-	function (key, string) {
-		return A2(
-			_VirtualDom_property,
-			key,
-			$elm$json$Json$Encode$string(string));
-	});
-var $elm$html$Html$Attributes$placeholder = $elm$html$Html$Attributes$stringProperty('placeholder');
-var $elm$html$Html$textarea = _VirtualDom_node('textarea');
-var $elm$html$Html$Attributes$value = $elm$html$Html$Attributes$stringProperty('value');
-var $author$project$Main$viewTaskInput = function (model) {
-	return A2(
-		$elm$html$Html$div,
-		_List_Nil,
-		_List_fromArray(
-			[
-				A2(
-				$elm$html$Html$textarea,
-				_List_fromArray(
-					[
-						$elm$html$Html$Attributes$placeholder('Write in New Task. Input support Markdown'),
-						$elm$html$Html$Attributes$value(model.newTaskContent),
-						$elm$html$Html$Events$onInput($author$project$Main$UpdateNewTaskContent)
-					]),
-				_List_Nil),
-				A2(
-				$elm$html$Html$button,
-				_List_fromArray(
-					[
-						$elm$html$Html$Events$onClick($author$project$Main$AddTask)
-					]),
-				_List_fromArray(
-					[
-						$elm$html$Html$text('Add Task')
-					]))
-			]));
-};
-var $author$project$Main$anonymousProRegular = _List_fromArray(
-	[
-		A2($elm$html$Html$Attributes$style, 'font-family', '\"Anonymous Pro\", monospace'),
-		A2($elm$html$Html$Attributes$style, 'font-weight', '400'),
-		A2($elm$html$Html$Attributes$style, 'font-style', 'normal')
-	]);
-var $author$project$Main$categories = _List_fromArray(
-	[$author$project$Main$NotKnowing, $author$project$Main$Action, $author$project$Main$Done, $author$project$Main$Destroyed]);
-var $elm$core$List$append = F2(
-	function (xs, ys) {
-		if (!ys.b) {
-			return xs;
-		} else {
-			return A3($elm$core$List$foldr, $elm$core$List$cons, ys, xs);
-		}
-	});
-var $elm$core$List$concat = function (lists) {
-	return A3($elm$core$List$foldr, $elm$core$List$append, _List_Nil, lists);
-};
-var $elm$html$Html$table = _VirtualDom_node('table');
-var $elm$html$Html$tbody = _VirtualDom_node('tbody');
-var $elm$html$Html$thead = _VirtualDom_node('thead');
-var $elm$html$Html$tr = _VirtualDom_node('tr');
+var $elm$html$Html$h2 = _VirtualDom_node('h2');
 var $elm$core$Dict$values = function (dict) {
 	return A3(
 		$elm$core$Dict$foldr,
@@ -6694,28 +6811,6 @@ var $elm$core$Dict$values = function (dict) {
 			}),
 		_List_Nil,
 		dict);
-};
-var $elm$html$Html$th = _VirtualDom_node('th');
-var $author$project$Main$viewTH = function (category) {
-	return A2(
-		$elm$html$Html$th,
-		_List_fromArray(
-			[
-				A2($elm$html$Html$Attributes$style, 'width', '25%'),
-				A2($elm$html$Html$Attributes$style, 'padding', '10px'),
-				A2($elm$html$Html$Attributes$style, 'box-sizing', 'border-box')
-			]),
-		_List_fromArray(
-			[
-				A2(
-				$elm$html$Html$h1,
-				_List_Nil,
-				_List_fromArray(
-					[
-						$elm$html$Html$text(
-						$author$project$Main$categoryToString(category))
-					]))
-			]));
 };
 var $author$project$Main$beigeStyle = '#fff6e4';
 var $author$project$Main$blueStyle = '#302EEC';
@@ -6786,7 +6881,12 @@ var $author$project$Main$cellAttributes = F2(
 				}())
 			]);
 	});
-var $elm$html$Html$td = _VirtualDom_node('td');
+var $author$project$Main$anonymousProRegular = _List_fromArray(
+	[
+		A2($elm$html$Html$Attributes$style, 'font-family', '\"Anonymous Pro\", monospace'),
+		A2($elm$html$Html$Attributes$style, 'font-weight', '400'),
+		A2($elm$html$Html$Attributes$style, 'font-style', 'normal')
+	]);
 var $elm_explorations$markdown$Markdown$defaultOptions = {
 	defaultHighlighting: $elm$core$Maybe$Nothing,
 	githubFlavored: $elm$core$Maybe$Just(
@@ -6878,12 +6978,7 @@ var $author$project$Main$MoveTask = F3(
 	function (a, b, c) {
 		return {$: 'MoveTask', a: a, b: b, c: c};
 	});
-var $author$project$Main$anonymousProRegularButton = _List_fromArray(
-	[
-		A2($elm$html$Html$Attributes$style, 'font-family', '\"Anonymous Pro\", monospace'),
-		A2($elm$html$Html$Attributes$style, 'font-weight', '400'),
-		A2($elm$html$Html$Attributes$style, 'font-style', 'normal')
-	]);
+var $elm$html$Html$button = _VirtualDom_node('button');
 var $author$project$Main$moveTaskButtonAttributes = function (category) {
 	var fontColort = function () {
 		switch (category.$) {
@@ -6916,6 +7011,23 @@ var $author$project$Main$moveTaskButtonAttributes = function (category) {
 			A2($elm$html$Html$Attributes$style, 'color', fontColort)
 		]);
 };
+var $elm$virtual_dom$VirtualDom$Normal = function (a) {
+	return {$: 'Normal', a: a};
+};
+var $elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
+var $elm$html$Html$Events$on = F2(
+	function (event, decoder) {
+		return A2(
+			$elm$virtual_dom$VirtualDom$on,
+			event,
+			$elm$virtual_dom$VirtualDom$Normal(decoder));
+	});
+var $elm$html$Html$Events$onClick = function (msg) {
+	return A2(
+		$elm$html$Html$Events$on,
+		'click',
+		$elm$json$Json$Decode$succeed(msg));
+};
 var $author$project$Main$createMoveButton = F3(
 	function (task, oldCategory, newCategory) {
 		var attrs = _Utils_ap(
@@ -6926,7 +7038,7 @@ var $author$project$Main$createMoveButton = F3(
 				]),
 			_Utils_ap(
 				$author$project$Main$moveTaskButtonAttributes(newCategory),
-				$author$project$Main$anonymousProRegularButton));
+				$author$project$Main$anonymousProRegular));
 		return A2(
 			$elm$html$Html$button,
 			attrs,
@@ -6991,10 +7103,178 @@ var $author$project$Main$viewTask = F2(
 		}();
 		return A2($elm$html$Html$div, _List_Nil, expirationMsg);
 	});
+var $author$project$Main$viewTaskItem = F2(
+	function (currentTime, task) {
+		return A2(
+			$elm$html$Html$div,
+			_Utils_ap(
+				A2($author$project$Main$cellAttributes, task, task.category),
+				_List_fromArray(
+					[
+						A2($elm$html$Html$Attributes$style, 'padding', '10px'),
+						A2($elm$html$Html$Attributes$style, 'border-radius', '5px')
+					])),
+			_List_fromArray(
+				[
+					A2($author$project$Main$viewTask, currentTime, task)
+				]));
+	});
+var $author$project$Main$viewCategoryColumn = F3(
+	function (title, tasks, currentTime) {
+		return A2(
+			$elm$html$Html$div,
+			_List_Nil,
+			_List_fromArray(
+				[
+					A2(
+					$elm$html$Html$h2,
+					_List_Nil,
+					_List_fromArray(
+						[
+							$elm$html$Html$text(title)
+						])),
+					A2(
+					$elm$html$Html$div,
+					_List_fromArray(
+						[
+							A2($elm$html$Html$Attributes$style, 'display', 'flex'),
+							A2($elm$html$Html$Attributes$style, 'flex-direction', 'column'),
+							A2($elm$html$Html$Attributes$style, 'gap', '10px')
+						]),
+					A2(
+						$elm$core$List$map,
+						$author$project$Main$viewTaskItem(currentTime),
+						$elm$core$Dict$values(tasks)))
+				]));
+	});
+var $author$project$Main$viewTaskColumns = function (model) {
+	return A2(
+		$elm$html$Html$div,
+		_List_Nil,
+		_List_fromArray(
+			[
+				A3($author$project$Main$viewCategoryColumn, 'Action', model.actionTasks, model.currentTime),
+				A3($author$project$Main$viewCategoryColumn, 'Not Knowing', model.notKnowingTasks, model.currentTime),
+				A3($author$project$Main$viewCategoryColumn, 'Done', model.doneTasks, model.currentTime),
+				A3($author$project$Main$viewCategoryColumn, 'Destroyed', model.destroyedTasks, model.currentTime)
+			]));
+};
+var $author$project$Main$AddTask = {$: 'AddTask'};
+var $author$project$Main$UpdateNewTaskContent = function (a) {
+	return {$: 'UpdateNewTaskContent', a: a};
+};
+var $elm$html$Html$Events$alwaysStop = function (x) {
+	return _Utils_Tuple2(x, true);
+};
+var $elm$virtual_dom$VirtualDom$MayStopPropagation = function (a) {
+	return {$: 'MayStopPropagation', a: a};
+};
+var $elm$html$Html$Events$stopPropagationOn = F2(
+	function (event, decoder) {
+		return A2(
+			$elm$virtual_dom$VirtualDom$on,
+			event,
+			$elm$virtual_dom$VirtualDom$MayStopPropagation(decoder));
+	});
+var $elm$json$Json$Decode$at = F2(
+	function (fields, decoder) {
+		return A3($elm$core$List$foldr, $elm$json$Json$Decode$field, decoder, fields);
+	});
+var $elm$html$Html$Events$targetValue = A2(
+	$elm$json$Json$Decode$at,
+	_List_fromArray(
+		['target', 'value']),
+	$elm$json$Json$Decode$string);
+var $elm$html$Html$Events$onInput = function (tagger) {
+	return A2(
+		$elm$html$Html$Events$stopPropagationOn,
+		'input',
+		A2(
+			$elm$json$Json$Decode$map,
+			$elm$html$Html$Events$alwaysStop,
+			A2($elm$json$Json$Decode$map, tagger, $elm$html$Html$Events$targetValue)));
+};
+var $elm$html$Html$Attributes$stringProperty = F2(
+	function (key, string) {
+		return A2(
+			_VirtualDom_property,
+			key,
+			$elm$json$Json$Encode$string(string));
+	});
+var $elm$html$Html$Attributes$placeholder = $elm$html$Html$Attributes$stringProperty('placeholder');
+var $elm$html$Html$textarea = _VirtualDom_node('textarea');
+var $elm$html$Html$Attributes$value = $elm$html$Html$Attributes$stringProperty('value');
+var $author$project$Main$viewTaskInput = function (model) {
+	return A2(
+		$elm$html$Html$div,
+		_List_Nil,
+		_List_fromArray(
+			[
+				A2(
+				$elm$html$Html$textarea,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$placeholder('Write in New Task. Input support Markdown'),
+						$elm$html$Html$Attributes$value(model.newTaskContent),
+						$elm$html$Html$Events$onInput($author$project$Main$UpdateNewTaskContent)
+					]),
+				_List_Nil),
+				A2(
+				$elm$html$Html$button,
+				_List_fromArray(
+					[
+						$elm$html$Html$Events$onClick($author$project$Main$AddTask)
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text('Add Task')
+					]))
+			]));
+};
+var $author$project$Main$categories = _List_fromArray(
+	[$author$project$Main$NotKnowing, $author$project$Main$Action, $author$project$Main$Done, $author$project$Main$Destroyed]);
+var $elm$core$List$append = F2(
+	function (xs, ys) {
+		if (!ys.b) {
+			return xs;
+		} else {
+			return A3($elm$core$List$foldr, $elm$core$List$cons, ys, xs);
+		}
+	});
+var $elm$core$List$concat = function (lists) {
+	return A3($elm$core$List$foldr, $elm$core$List$append, _List_Nil, lists);
+};
+var $elm$html$Html$table = _VirtualDom_node('table');
+var $elm$html$Html$tbody = _VirtualDom_node('tbody');
+var $elm$html$Html$thead = _VirtualDom_node('thead');
+var $elm$html$Html$tr = _VirtualDom_node('tr');
+var $elm$html$Html$th = _VirtualDom_node('th');
+var $author$project$Main$viewTH = function (category) {
+	return A2(
+		$elm$html$Html$th,
+		_List_fromArray(
+			[
+				A2($elm$html$Html$Attributes$style, 'width', '25%'),
+				A2($elm$html$Html$Attributes$style, 'padding', '10px'),
+				A2($elm$html$Html$Attributes$style, 'box-sizing', 'border-box')
+			]),
+		_List_fromArray(
+			[
+				A2(
+				$elm$html$Html$h1,
+				_List_Nil,
+				_List_fromArray(
+					[
+						$elm$html$Html$text(
+						$author$project$Main$categoryToString(category))
+					]))
+			]));
+};
+var $elm$html$Html$td = _VirtualDom_node('td');
 var $author$project$Main$viewCategoryCell = F3(
 	function (currentTime, category, task) {
 		return A2(
-			$elm$html$Html$td,
+			$elm$html$Html$div,
 			_Utils_ap(
 				A2($author$project$Main$cellAttributes, task, category),
 				_List_fromArray(
@@ -7014,10 +7294,34 @@ var $author$project$Main$viewTaskRow = F2(
 			_List_Nil,
 			_List_fromArray(
 				[
-					A3($author$project$Main$viewCategoryCell, currentTime, $author$project$Main$NotKnowing, task),
-					A3($author$project$Main$viewCategoryCell, currentTime, $author$project$Main$Action, task),
-					A3($author$project$Main$viewCategoryCell, currentTime, $author$project$Main$Done, task),
-					A3($author$project$Main$viewCategoryCell, currentTime, $author$project$Main$Destroyed, task)
+					A2(
+					$elm$html$Html$td,
+					_List_Nil,
+					_List_fromArray(
+						[
+							A3($author$project$Main$viewCategoryCell, currentTime, $author$project$Main$NotKnowing, task)
+						])),
+					A2(
+					$elm$html$Html$td,
+					_List_Nil,
+					_List_fromArray(
+						[
+							A3($author$project$Main$viewCategoryCell, currentTime, $author$project$Main$Action, task)
+						])),
+					A2(
+					$elm$html$Html$td,
+					_List_Nil,
+					_List_fromArray(
+						[
+							A3($author$project$Main$viewCategoryCell, currentTime, $author$project$Main$Done, task)
+						])),
+					A2(
+					$elm$html$Html$td,
+					_List_Nil,
+					_List_fromArray(
+						[
+							A3($author$project$Main$viewCategoryCell, currentTime, $author$project$Main$Destroyed, task)
+						]))
 				]));
 	});
 var $author$project$Main$viewTaskTable = function (model) {
@@ -7061,7 +7365,7 @@ var $author$project$Main$viewTaskTable = function (model) {
 			]));
 };
 var $author$project$Main$view = function (model) {
-	return A2(
+	return (!$author$project$Main$isMobileView(model)) ? A2(
 		$elm$html$Html$div,
 		$author$project$Main$anonymousProBold,
 		_List_fromArray(
@@ -7080,6 +7384,26 @@ var $author$project$Main$view = function (model) {
 					[
 						$author$project$Main$viewTaskInput(model),
 						$author$project$Main$viewTaskTable(model)
+					]))
+			])) : A2(
+		$elm$html$Html$div,
+		$author$project$Main$anonymousProBold,
+		_List_fromArray(
+			[
+				A2(
+				$elm$html$Html$h1,
+				_List_Nil,
+				_List_fromArray(
+					[
+						$elm$html$Html$text('Done')
+					])),
+				A2(
+				$elm$html$Html$main_,
+				_List_Nil,
+				_List_fromArray(
+					[
+						$author$project$Main$viewTaskInput(model),
+						$author$project$Main$viewTaskColumns(model)
 					]))
 			]));
 };

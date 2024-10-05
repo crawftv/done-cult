@@ -1,14 +1,18 @@
 port module Main exposing (main, taskDecoder)
 
 import Browser
+import Browser.Dom
+import Browser.Events exposing (onResize)
 import Dict exposing (Dict)
+import Element.Font
 import Html exposing (..)
-import Html.Attributes exposing (class)
+import Html.Attributes
 import Html.Events exposing (onClick, onInput)
 import Json.Decode as Decode exposing (Decoder, dict)
 import Json.Decode.Pipeline exposing (required)
 import Json.Encode
 import Markdown
+import Task
 import Time
 
 
@@ -72,6 +76,7 @@ type alias Model =
     , destroyedTasks : DestroyedTasks
     , newTaskContent : String
     , currentTime : Time.Posix
+    , windowWidth : Int
     }
 
 
@@ -101,8 +106,9 @@ init flags =
               , destroyedTasks = loadModel.destroyedTasks
               , newTaskContent = ""
               , currentTime = Time.millisToPosix 0
+              , windowWidth = 1024  -- Default to desktop view
               }
-            , Cmd.none
+            , Cmd.batch [Task.perform GotViewport Browser.Dom.getViewport, Task.perform Tick Time.now ]
             )
 
         Err e ->
@@ -113,8 +119,9 @@ init flags =
               , destroyedTasks = Dict.empty
               , newTaskContent = ""
               , currentTime = Time.millisToPosix 0
+              , windowWidth = 1024  -- Default to desktop view
               }
-            , Cmd.none
+            , Task.perform GotViewport Browser.Dom.getViewport
             )
 
 
@@ -128,6 +135,8 @@ type Msg
     | MoveTask String Category Category
     | Tick Time.Posix
     | LoadTasksFromLocalStorage Json.Encode.Value
+    | WindowResized Int Int
+    | GotViewport Browser.Dom.Viewport
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -230,6 +239,11 @@ update msg model =
                     , destroyedTasks = tasks.destroyedTasks
                     }
             )
+        WindowResized width _ ->
+                ( { model | windowWidth = width }, Cmd.none )
+        GotViewport viewport ->
+            ( { model | windowWidth = round viewport.viewport.width }, Cmd.none )
+
 
 
 moveTasks : Model -> String -> Category -> Category -> SaveModel
@@ -308,17 +322,11 @@ moveTasks model taskId fromCategory toCategory =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
-    if model.currentTime == Time.millisToPosix 0 then
-        Sub.batch
-            [ Time.every 1 Tick
-            , loadTasks LoadTasksFromLocalStorage
-            ]
-
-    else
+subscriptions _ =
         Sub.batch
             [ Time.every 1000 Tick
             , loadTasks LoadTasksFromLocalStorage
+             , onResize WindowResized
             ]
 
 
@@ -328,13 +336,22 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-    div anonymousProBold
-        [ h1 [] [ text "Done" ]
-        , Html.main_ []
-            [ viewTaskInput model
-            , viewTaskTable model
+    if not (isMobileView model) then
+        div anonymousProBold
+            [ h1 [] [ text "Done" ]
+            , Html.main_ []
+                [ viewTaskInput model
+                , viewTaskTable model
+                ]
             ]
-        ]
+    else
+        div anonymousProBold
+            [ h1 [] [ text "Done" ]
+            , Html.main_ []
+                [ viewTaskInput model
+                , viewTaskColumns model
+                ]
+            ]
 
 
 viewTaskInput : Model -> Html Msg
@@ -439,7 +456,7 @@ createMoveButton : Task -> Category -> Category -> Html Msg
 createMoveButton task oldCategory newCategory =
     let
         attrs =
-            [ onClick (MoveTask task.id oldCategory newCategory) ] ++ moveTaskButtonAttributes newCategory ++ anonymousProRegularButton
+            [ onClick (MoveTask task.id oldCategory newCategory) ] ++ moveTaskButtonAttributes newCategory ++ anonymousProRegular
     in
         button attrs [ text (categoryToString newCategory) ]
 
@@ -496,11 +513,44 @@ viewTaskTable model =
 viewTaskRow : Time.Posix -> Task -> Html Msg
 viewTaskRow currentTime task =
     tr []
-        [ viewCategoryCell currentTime NotKnowing task
-        , viewCategoryCell currentTime Action task
-        , viewCategoryCell currentTime Done task
-        , viewCategoryCell currentTime Destroyed task
+        [ td [] [viewCategoryCell currentTime NotKnowing task]
+        , td [] [viewCategoryCell currentTime Action task]
+        , td [] [viewCategoryCell currentTime Done task]
+        , td [] [viewCategoryCell currentTime Destroyed task]
         ]
+
+viewTaskColumns : Model -> Html Msg
+viewTaskColumns model =
+    div []
+        [ viewCategoryColumn "Action" model.actionTasks model.currentTime
+        , viewCategoryColumn "Not Knowing" model.notKnowingTasks model.currentTime
+        , viewCategoryColumn "Done" model.doneTasks model.currentTime
+        , viewCategoryColumn "Destroyed" model.destroyedTasks model.currentTime
+        ]
+
+
+viewCategoryColumn : String -> Dict String Task -> Time.Posix -> Html Msg
+viewCategoryColumn title tasks currentTime =
+    div []
+        [ h2 [] [ text title ]
+        , div
+            [ Html.Attributes.style "display" "flex"
+            , Html.Attributes.style "flex-direction" "column"
+            , Html.Attributes.style "gap" "10px"
+            ]
+            (List.map (viewTaskItem currentTime) (Dict.values tasks))
+        ]
+
+viewTaskItem : Time.Posix -> Task -> Html Msg
+viewTaskItem currentTime task =
+    div
+        (cellAttributes task task.category ++
+        [ Html.Attributes.style "padding" "10px"
+        , Html.Attributes.style "border-radius" "5px"
+        ])
+        [ viewTask currentTime task ]
+
+
 
 
 moveTaskButtonAttributes : Category -> List (Attribute msg)
@@ -600,7 +650,7 @@ cellAttributes task category =
 
 viewCategoryCell : Time.Posix -> Category -> Task -> Html Msg
 viewCategoryCell currentTime category task =
-    td
+    div
         (cellAttributes task category ++
          [ Html.Attributes.style "padding" "10px"  -- Add padding inside cells
          , Html.Attributes.style "border-radius" "5px"  -- Optional: add rounded corners
@@ -720,15 +770,8 @@ anonymousProRegular =
     , Html.Attributes.style "font-weight" "400"
     , Html.Attributes.style "font-style" "normal"
     ]
-
-
-anonymousProRegularButton : List (Html.Attribute msg)
-anonymousProRegularButton =
-    [ Html.Attributes.style "font-family" "\"Anonymous Pro\", monospace"
-    , Html.Attributes.style "font-weight" "400"
-    , Html.Attributes.style "font-style" "normal"
-    ]
-
+anonymousProRegularMobile =
+    Element.Font.family [ Element.Font.typeface "Anonymous Pro", Element.Font.monospace]
 
 anonymousProBold : List (Html.Attribute msg)
 anonymousProBold =
@@ -776,3 +819,7 @@ redStyle =
 
 whiteStyle =
     "white"
+
+isMobileView : Model -> Bool
+isMobileView model =
+    model.windowWidth < 768
