@@ -112,7 +112,6 @@ init flags =
             )
 
         Err e ->
-            Debug.log (Decode.errorToString e)
             ( { notKnowingTasks = Dict.empty
               , actionTasks = Dict.empty
               , doneTasks = Dict.empty
@@ -357,7 +356,7 @@ view model =
 viewTaskInput : Model -> Html Msg
 viewTaskInput model =
     div []
-        [ textarea [ Html.Attributes.placeholder "Write in New Task. Input support Markdown", Html.Attributes.value model.newTaskContent, onInput UpdateNewTaskContent ] []
+        [ textarea [ Html.Attributes.placeholder "Write in New Task. Input supports Markdown", Html.Attributes.value model.newTaskContent, onInput UpdateNewTaskContent ] []
         , button [ onClick AddTask ] [ text "Add Task" ]
         ]
 

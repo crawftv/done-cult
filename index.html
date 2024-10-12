@@ -33,30 +33,32 @@
 function createTasks(taskDataArray) {
   const tasks = {};
   let timestamp = Date.now();
-  taskDataArray.forEach(([content, category]) => {
-    const key = timestamp.toString();
-    tasks[key] = generateTask(content, category, timestamp);
-    timestamp -= 1000; // Subtract 1 second for the next task
+  taskDataArray.forEach(([content, category, adjustment]) => {
+    ts = timestamp - adjustment
+    const key = ts.toString();
+    tasks[key] = generateTask(content, category, ts);
   });
   return tasks;
 }
 
 const defaultTasks = {
   notKnowingTasks: createTasks([
-    ["Read the [Done Manifesto](\\done-manifesto.html)", "Not Knowing"],
-    ["Destroy This Task", "Not Knowing"],
-    ["Mark this Task as Done.", "Not Knowing"]
+    ["Destroy This Task", "Not Knowing",0],
+    ["Mark this Task as Done.", "Not Knowing",1000],
+    ["Read the [Done Manifesto](\\done-manifesto.html)", "Not Knowing",2000],
+    ["Read the [About](\\about.html) page", "Not Knowing",3000],
   ]),
   actionTasks: createTasks([
-    ["Read this Task: (When you've read this Task, mark as done).", "Action"],
-    ["Destroy This task. ( you started this task and decided finishing is not worth it.)", "Action"]
+    ["Read this Task: (When you've read this Task, mark as done).", "Action",4000],
+    ["Destroy This task. (You started this task and decided finishing is not worth it.)", "Action",5000]
   ]),
   doneTasks: createTasks([
-    ["Done Task. (a task you've finished)", "Done"]
+    ["Done Task. (A task you've finished)", "Done",6000]
   ]),
   destroyedTasks: createTasks([
-    ["Destroyed Task. ( A task you decided not worth the time or impossible)", "Destroyed"]
+    ["Destroyed Task. (A task you decided not worth the time or impossible)", "Destroyed",7000]
   ])
+
 };
 
 var storedData = localStorage.getItem('Tasks');
