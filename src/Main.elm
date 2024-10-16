@@ -3,18 +3,19 @@ port module Main exposing (main, taskDecoder)
 import Browser
 import Browser.Dom
 import Browser.Events exposing (onResize)
+import Browser.Navigation as Nav
 import Dict exposing (Dict)
 import Element.Font
 import Html exposing (..)
 import Html.Attributes
 import Html.Events exposing (onClick, onInput)
-import Json.Decode as Decode exposing (Decoder, dict)
-import Json.Decode.Pipeline exposing (required)
+import Json.Decode as Decode exposing (Decoder, dict, null, oneOf)
+import Json.Decode.Pipeline exposing (optional, optionalAt, required, requiredAt, resolve)
 import Json.Encode
 import Markdown
 import Task
 import Time
-
+import Http
 
 
 -- MAIN
@@ -68,6 +69,7 @@ type alias DoneTasks =
 type alias DestroyedTasks =
     Dict String Task
 
+type User = NoUser | Auth0User Auth0UserInfo Int
 
 type alias Model =
     { notKnowingTasks : NotKnowingTasks
@@ -77,8 +79,24 @@ type alias Model =
     , newTaskContent : String
     , currentTime : Time.Posix
     , windowWidth : Int
+    , user : User
     }
 
+type alias Auth0UserInfo =
+    { nickname : String
+    , name : String
+    , picture : String
+    , updatedAt : String
+    , email : String
+    , emailVerified : Bool
+    , iss : String
+    , aud : String
+    , iat : Int
+    , exp : Int
+    , sub : String
+    , sid : String
+    , nonce : String
+    }
 
 type alias LoadModel =
     { notKnowingTasks : NotKnowingTasks
@@ -86,6 +104,10 @@ type alias LoadModel =
     , doneTasks : DoneTasks
     , destroyedTasks : DestroyedTasks
     }
+
+type alias LoadFlags =
+    { tasks: LoadModel
+    , user: User}
 
 
 type alias SaveModel =
@@ -98,20 +120,28 @@ type alias SaveModel =
 
 init : Json.Encode.Value -> ( Model, Cmd Msg )
 init flags =
-    case Decode.decodeValue loadModelDecoder flags of
-        Ok loadModel ->
-            ( { notKnowingTasks = loadModel.notKnowingTasks
-              , actionTasks = loadModel.actionTasks
-              , doneTasks = loadModel.doneTasks
-              , destroyedTasks = loadModel.destroyedTasks
-              , newTaskContent = ""
-              , currentTime = Time.millisToPosix 0
-              , windowWidth = 1024  -- Default to desktop view
-              }
-            , Cmd.batch [Task.perform GotViewport Browser.Dom.getViewport, Task.perform Tick Time.now ]
-            )
+    case Decode.decodeValue loadFlagsDecoder flags of
+        Ok loadFlags ->
+            let
+                loadModel = loadFlags.tasks
+                user = loadFlags.user
+            in
 
-        Err e ->
+                ( { notKnowingTasks = loadModel.notKnowingTasks
+                  , actionTasks = loadModel.actionTasks
+                  , doneTasks = loadModel.doneTasks
+                  , destroyedTasks = loadModel.destroyedTasks
+                  , newTaskContent = ""
+                  , currentTime = Time.millisToPosix 0
+                  , windowWidth = 1024  -- Default to desktop view
+                  , user = user
+                  }
+                , Cmd.batch [Task.perform GotViewport Browser.Dom.getViewport, Task.perform Tick Time.now ]
+                )
+
+        Err error ->
+            Debug.log ( Decode.errorToString error)
+            Debug.log (Debug.toString flags)
             ( { notKnowingTasks = Dict.empty
               , actionTasks = Dict.empty
               , doneTasks = Dict.empty
@@ -119,6 +149,7 @@ init flags =
               , newTaskContent = ""
               , currentTime = Time.millisToPosix 0
               , windowWidth = 1024  -- Default to desktop view
+              , user = NoUser
               }
             , Task.perform GotViewport Browser.Dom.getViewport
             )
@@ -136,6 +167,8 @@ type Msg
     | LoadTasksFromLocalStorage Json.Encode.Value
     | WindowResized Int Int
     | GotViewport Browser.Dom.Viewport
+    | SendToGumroad
+    | InitiateLogout
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -205,7 +238,7 @@ update msg model =
             )
 
         LoadTasksFromLocalStorage json ->
-            case Decode.decodeValue loadModelDecoder json of
+            case Decode.decodeValue loadTasksDecoder json of
                 Ok loadedTasks ->
                     ( { model
                         | actionTasks = loadedTasks.actionTasks
@@ -242,8 +275,10 @@ update msg model =
                 ( { model | windowWidth = width }, Cmd.none )
         GotViewport viewport ->
             ( { model | windowWidth = round viewport.viewport.width }, Cmd.none )
-
-
+        SendToGumroad ->
+            ( model, Nav.load gumroadUrl )
+        InitiateLogout ->
+            (model, Nav.load logoutUrl)
 
 moveTasks : Model -> String -> Category -> Category -> SaveModel
 moveTasks model taskId fromCategory toCategory =
@@ -337,7 +372,10 @@ view : Model -> Html Msg
 view model =
     if not (isMobileView model) then
         div anonymousProBold
-            [ h1 [] [ text "Done" ]
+            [ Html.nav []
+                [ h1 [] [ text "Done" ]
+                , div [Html.Attributes.align "right"] <| viewNavBar model
+                ]
             , Html.main_ []
                 [ viewTaskInput model
                 , viewTaskTable model
@@ -351,6 +389,15 @@ view model =
                 , viewTaskColumns model
                 ]
             ]
+
+viewNavBar : Model -> List( Html Msg)
+viewNavBar model=
+    case model.user of
+        NoUser ->
+                [ button [ onClick SendToGumroad] [ text "Sign Up / Login"]
+                ]
+        Auth0User user expires ->
+            [button [ onClick InitiateLogout] [ text "Logout"]]
 
 
 viewTaskInput : Model -> Html Msg
@@ -741,15 +788,55 @@ taskDecoder =
         |> required "category" categoryDecoder
         |> required "destroyedAt" posixDecoder
 
+userDecoder : Decoder User
+userDecoder =
+    let
+        -- toDecoder gets run *after* all the
+        -- (|> required ...) steps are done.
+        toDecoder : Maybe Auth0UserInfo -> Int -> Decoder User
+        toDecoder user expires =
+            case user of
+                Nothing ->
+                    Decode.succeed NoUser
+                Just userData->
+                    Decode.succeed (Auth0User userData expires)
+    in
+        Decode.succeed Auth0User
+            |> required "Auth0UserInfo" auth0userInfoDecoder
+            |> required "expires_at" Decode.int
 
-loadModelDecoder : Decode.Decoder LoadModel
-loadModelDecoder =
+
+
+loadFlagsDecoder : Decode.Decoder LoadFlags
+loadFlagsDecoder =
+    Decode.succeed LoadFlags
+        |> required "tasks" loadTasksDecoder
+        |> optionalAt ["user","user"] (oneOf [ userDecoder, null NoUser ]) NoUser
+
+loadTasksDecoder : Decode.Decoder LoadModel
+loadTasksDecoder =
     Decode.succeed LoadModel
         |> required "notKnowingTasks" dictTaskDecoder
         |> required "actionTasks" dictTaskDecoder
         |> required "doneTasks" dictTaskDecoder
         |> required "destroyedTasks" dictTaskDecoder
 
+auth0userInfoDecoder : Decoder Auth0UserInfo
+auth0userInfoDecoder =
+    Decode.succeed Auth0UserInfo
+        |> required "nickname" Decode.string
+        |> required "name" Decode.string
+        |> required "picture" Decode.string
+        |> required "updated_at" Decode.string
+        |> required "email" Decode.string
+        |> required "email_verified" Decode.bool
+        |> required "iss" Decode.string
+        |> required "aud" Decode.string
+        |> required "iat" Decode.int
+        |> required "exp" Decode.int
+        |> required "sub" Decode.string
+        |> required "sid" Decode.string
+        |> required "nonce" Decode.string
 
 millisecondsInDay =
     24 * 60 * 60 * 1000
@@ -822,3 +909,6 @@ whiteStyle =
 isMobileView : Model -> Bool
 isMobileView model =
     model.windowWidth < 768
+
+gumroadUrl = "https://gumroad.com"
+logoutUrl = "/logout"

@@ -12,9 +12,9 @@ COPY nginx.conf                 /etc/nginx/nginx.conf
 
 # Copy elm files
 COPY public/                    /app/
-COPY index.html                 /app/index.html
-COPY elm.js                     /app/elm.js
-
+COPY public/index.html          /app/index.html
+COPY public/elm.js              /app/elm.js
+COPY server.py                  /app/server.py
 RUN chmod -R 755 /app
 
 # Copy supervisord configuration
