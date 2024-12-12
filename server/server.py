@@ -1,24 +1,30 @@
 # 📁 server.py -----
 import json
+import os
 from urllib.parse import quote_plus, urlencode
 
 import uvicorn
 from authlib.integrations.starlette_client import OAuth
-from fastapi import FastAPI, Request, Depends, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.security import OAuth2PasswordBearer
 from starlette import status
 from starlette.config import Config
 from starlette.middleware.sessions import SessionMiddleware
-from starlette.responses import HTMLResponse, RedirectResponse
+from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
-templates = Jinja2Templates(directory=".")
+from server.db import add_user, insert_app_data
+from server.types import SaveData
+
+templates = Jinja2Templates(directory=os.path.realpath(os.path.join(os.getcwd())))
 
 # 👆 We're continuing from the steps above. Append this to your server.py file.
 app = FastAPI()
 
-config = Config('.env')  # Make sure you have your Auth0 credentials in a .env file
+ENV = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__), '.env'))
+
+config = Config(ENV)  # Make sure you have your Auth0 credentials in a .env file
 
 SESSION_SECRET_KEY = config("SESSION_SECRET_KEY", default=None)
 if SESSION_SECRET_KEY is None:
@@ -28,7 +34,9 @@ if SESSION_SECRET_KEY is None:
 app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
 
 # Mount static files
-app.mount("/static", StaticFiles(directory="public"), name="static")
+app.mount("/static",
+          StaticFiles(directory=os.path.realpath(os.path.join(os.getcwd(), "public"))),
+          name="static")
 # Configure Auth0
 oauth = OAuth(config)
 
@@ -50,6 +58,12 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 async def login(request: Request):
     redirect_uri = request.url_for("callback")  # This assumes you have a callback endpoint
     return await oauth.auth0.authorize_redirect(request, redirect_uri, _external=True)
+
+
+@app.get("/healthz")
+def healthz():
+    """Minimal health check endpoint."""
+    return Response(status_code=status.HTTP_200_OK, content=json.dumps({"success": True}))
 
 
 @app.get("/callback")
@@ -106,21 +120,29 @@ async def home(request: Request):
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
-        user = await oauth.auth0.parse_id_token(token)
-        return user
-    except Exception:
+        return await oauth.auth0.parse_id_token(token)
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from e
 
 
 @app.post("/save")
-async def save_data(data: dict, current_user: dict = Depends(get_current_user)):
-    # Here you can save the data, associated with the current user
-    # For this example, we'll just return the data and user info
-    return {"message": "Data saved", "data": data, "user": current_user}
+async def save_data(save_data: SaveData, request: Request):
+    auth0_info = request.session.get('Auth0Info')
+    if not auth0_info:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    user_info = auth0_info['Auth0UserInfo']
+    insert_app_data(user_info['sub'], save_data)
+    return {"message": "Data saved"}
+
+
+@app.post("/create_user")
+async def create_user(new_user):
+    add_user(new_user)
 
 
 if __name__ == "__main__":

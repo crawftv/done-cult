@@ -10,12 +10,14 @@ import Html exposing (..)
 import Html.Attributes
 import Html.Events exposing (onClick, onInput)
 import Json.Decode as Decode exposing (Decoder, dict, null, oneOf)
-import Json.Decode.Pipeline exposing (optional, optionalAt, required, requiredAt, resolve)
+import Json.Decode.Pipeline exposing (optionalAt, required)
 import Json.Encode
 import Markdown
+import RemoteData exposing (RemoteData(..), WebData)
+import RemoteData.Http
 import Task
 import Time
-import Http
+
 
 
 -- MAIN
@@ -69,7 +71,11 @@ type alias DoneTasks =
 type alias DestroyedTasks =
     Dict String Task
 
-type User = NoUser | Auth0User Auth0UserInfo Int
+
+type User
+    = NoUser
+    | Auth0User Auth0UserInfo Int
+
 
 type alias Model =
     { notKnowingTasks : NotKnowingTasks
@@ -80,7 +86,9 @@ type alias Model =
     , currentTime : Time.Posix
     , windowWidth : Int
     , user : User
+    , mostRecentUpdate : Time.Posix
     }
+
 
 type alias Auth0UserInfo =
     { nickname : String
@@ -98,6 +106,7 @@ type alias Auth0UserInfo =
     , nonce : String
     }
 
+
 type alias LoadModel =
     { notKnowingTasks : NotKnowingTasks
     , actionTasks : ActionTasks
@@ -105,9 +114,12 @@ type alias LoadModel =
     , destroyedTasks : DestroyedTasks
     }
 
+
 type alias LoadFlags =
-    { tasks: LoadModel
-    , user: User}
+    { tasks : LoadModel
+    , user : User
+    , mostRecentUpdate : Int
+    }
 
 
 type alias SaveModel =
@@ -123,36 +135,49 @@ init flags =
     case Decode.decodeValue loadFlagsDecoder flags of
         Ok loadFlags ->
             let
-                loadModel = loadFlags.tasks
-                user = loadFlags.user
+                loadModel =
+                    loadFlags.tasks
+
+                user =
+                    loadFlags.user
+
+                mostRecentUpdate =
+                    loadFlags.mostRecentUpdate
             in
-
-                ( { notKnowingTasks = loadModel.notKnowingTasks
-                  , actionTasks = loadModel.actionTasks
-                  , doneTasks = loadModel.doneTasks
-                  , destroyedTasks = loadModel.destroyedTasks
-                  , newTaskContent = ""
-                  , currentTime = Time.millisToPosix 0
-                  , windowWidth = 1024  -- Default to desktop view
-                  , user = user
-                  }
-                , Cmd.batch [Task.perform GotViewport Browser.Dom.getViewport, Task.perform Tick Time.now ]
-                )
-
-        Err error ->
-            Debug.log ( Decode.errorToString error)
-            Debug.log (Debug.toString flags)
-            ( { notKnowingTasks = Dict.empty
-              , actionTasks = Dict.empty
-              , doneTasks = Dict.empty
-              , destroyedTasks = Dict.empty
+            ( { notKnowingTasks = loadModel.notKnowingTasks
+              , actionTasks = loadModel.actionTasks
+              , doneTasks = loadModel.doneTasks
+              , destroyedTasks = loadModel.destroyedTasks
               , newTaskContent = ""
               , currentTime = Time.millisToPosix 0
-              , windowWidth = 1024  -- Default to desktop view
-              , user = NoUser
+              , windowWidth = 1024 -- Default to desktop view
+              , user = user
+              , mostRecentUpdate = Time.millisToPosix mostRecentUpdate
               }
-            , Task.perform GotViewport Browser.Dom.getViewport
+            , Cmd.batch [ Task.perform GotViewport Browser.Dom.getViewport, Task.perform Tick Time.now ]
             )
+
+        Err error ->
+            Debug.log (Decode.errorToString error)
+                Debug.log
+                (Debug.toString flags)
+                ( { notKnowingTasks = Dict.empty
+                  , actionTasks = Dict.empty
+                  , doneTasks = Dict.empty
+                  , destroyedTasks = Dict.empty
+                  , newTaskContent = ""
+                  , currentTime = Time.millisToPosix 0
+                  , windowWidth = 1024 -- Default to desktop view
+                  , user = NoUser
+                  , mostRecentUpdate = Time.millisToPosix 0
+                  }
+                , Task.perform GotViewport Browser.Dom.getViewport
+                )
+
+
+type alias SaveDataResult =
+    { message : String
+    }
 
 
 
@@ -169,6 +194,7 @@ type Msg
     | GotViewport Browser.Dom.Viewport
     | SendToGumroad
     | InitiateLogout
+    | SaveDataResponse (WebData SaveDataResult)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -185,18 +211,27 @@ update msg model =
 
                     newNotKnowingTasks =
                         Dict.insert id (Task id model.newTaskContent NotKnowing (getDestroyedAt model.currentTime)) model.notKnowingTasks
+
+                    updatedModel =
+                        { model
+                            | notKnowingTasks = newNotKnowingTasks
+                            , newTaskContent = ""
+                        }
                 in
-                ( { model
+                ( { updatedModel
                     | notKnowingTasks = newNotKnowingTasks
                     , newTaskContent = ""
                   }
-                , saveTasks <|
-                    encodeTasks
-                        { notKnowingTasks = newNotKnowingTasks
-                        , actionTasks = model.actionTasks
-                        , doneTasks = model.doneTasks
-                        , destroyedTasks = model.destroyedTasks
-                        }
+                , Cmd.batch
+                    [ saveTasks <|
+                        encodeTasks
+                            { notKnowingTasks = newNotKnowingTasks
+                            , actionTasks = model.actionTasks
+                            , doneTasks = model.doneTasks
+                            , destroyedTasks = model.destroyedTasks
+                            }
+                    , saveTasksToDB updatedModel
+                    ]
                 )
 
         UpdateNewTaskContent content ->
@@ -256,29 +291,43 @@ update msg model =
             let
                 tasks =
                     moveTasks model taskId fromCategory toCategory
-            in
-            ( { model
-                | notKnowingTasks = tasks.notKnowingTasks
-                , actionTasks = tasks.actionTasks
-                , doneTasks = tasks.doneTasks
-                , destroyedTasks = tasks.destroyedTasks
-              }
-            , saveTasks <|
-                encodeTasks
-                    { notKnowingTasks = tasks.notKnowingTasks
-                    , actionTasks = tasks.actionTasks
-                    , doneTasks = tasks.doneTasks
-                    , destroyedTasks = tasks.destroyedTasks
+
+                updatedModel =
+                    { model
+                        | notKnowingTasks = tasks.notKnowingTasks
+                        , actionTasks = tasks.actionTasks
+                        , doneTasks = tasks.doneTasks
+                        , destroyedTasks = tasks.destroyedTasks
                     }
+            in
+            ( updatedModel
+            , Cmd.batch
+                [ saveTasks <|
+                    encodeTasks
+                        { notKnowingTasks = model.notKnowingTasks
+                        , actionTasks = model.actionTasks
+                        , doneTasks = model.doneTasks
+                        , destroyedTasks = model.destroyedTasks
+                        }
+                , saveTasksToDB updatedModel
+                ]
             )
+
         WindowResized width _ ->
-                ( { model | windowWidth = width }, Cmd.none )
+            ( { model | windowWidth = width }, Cmd.none )
+
         GotViewport viewport ->
             ( { model | windowWidth = round viewport.viewport.width }, Cmd.none )
+
         SendToGumroad ->
-            ( model, Nav.load gumroadUrl )
+            ( model, Nav.load loginUrl )
+
         InitiateLogout ->
-            (model, Nav.load logoutUrl)
+            ( model, Nav.load logoutUrl )
+
+        SaveDataResponse _ ->
+            ( model, Cmd.none )
+
 
 moveTasks : Model -> String -> Category -> Category -> SaveModel
 moveTasks model taskId fromCategory toCategory =
@@ -351,17 +400,36 @@ moveTasks model taskId fromCategory toCategory =
     SaveModel notKnowingTasks actionTasks doneTasks destroyedTasks
 
 
+saveTasksToDB : Model -> Cmd Msg
+saveTasksToDB model =
+    let
+        saveData =
+            { notKnowingTasks = model.notKnowingTasks
+            , actionTasks = model.actionTasks
+            , doneTasks = model.doneTasks
+            , destroyedTasks = model.destroyedTasks
+            }
+    in
+    RemoteData.Http.postWithConfig RemoteData.Http.defaultConfig "/save" SaveDataResponse decodeSaveResponse (encodeTasks saveData)
+
+
+decodeSaveResponse : Decoder SaveDataResult
+decodeSaveResponse =
+    Decode.succeed SaveDataResult
+        |> required "message" Decode.string
+
+
 
 -- SUBSCRIPTIONS
 
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-        Sub.batch
-            [ Time.every 1000 Tick
-            , loadTasks LoadTasksFromLocalStorage
-             , onResize WindowResized
-            ]
+    Sub.batch
+        [ Time.every 1000 Tick
+        , loadTasks LoadTasksFromLocalStorage
+        , onResize WindowResized
+        ]
 
 
 
@@ -374,13 +442,14 @@ view model =
         div anonymousProBold
             [ Html.nav []
                 [ h1 [] [ text "Done" ]
-                , div [Html.Attributes.align "right"] <| viewNavBar model
+                , div [ Html.Attributes.align "right" ] <| viewNavBar model
                 ]
             , Html.main_ []
                 [ viewTaskInput model
                 , viewTaskTable model
                 ]
             ]
+
     else
         div anonymousProBold
             [ h1 [] [ text "Done" ]
@@ -390,14 +459,16 @@ view model =
                 ]
             ]
 
-viewNavBar : Model -> List( Html Msg)
-viewNavBar model=
+
+viewNavBar : Model -> List (Html Msg)
+viewNavBar model =
     case model.user of
         NoUser ->
-                [ button [ onClick SendToGumroad] [ text "Sign Up / Login"]
-                ]
+            [ button [ onClick SendToGumroad ] [ text "Sign Up / Login" ]
+            ]
+
         Auth0User user expires ->
-            [button [ onClick InitiateLogout] [ text "Logout"]]
+            [ button [ onClick InitiateLogout ] [ text "Logout" ] ]
 
 
 viewTaskInput : Model -> Html Msg
@@ -425,9 +496,8 @@ viewTask : Time.Posix -> Task -> Html Msg
 viewTask currentTime task =
     let
         msgs =
-            [ div (anonymousProRegular )
-             [(Markdown.toHtml [Html.Attributes.style "display" "inline"] task.content)]
-
+            [ div anonymousProRegular
+                [ Markdown.toHtml [ Html.Attributes.style "display" "inline" ] task.content ]
             , div [] (viewTaskButtons task)
             ]
 
@@ -504,7 +574,7 @@ createMoveButton task oldCategory newCategory =
         attrs =
             [ onClick (MoveTask task.id oldCategory newCategory) ] ++ moveTaskButtonAttributes newCategory ++ anonymousProRegular
     in
-        button attrs [ text (categoryToString newCategory) ]
+    button attrs [ text (categoryToString newCategory) ]
 
 
 categoryToString : Category -> String
@@ -537,8 +607,8 @@ viewTaskTable : Model -> Html Msg
 viewTaskTable model =
     table
         ([ Html.Attributes.style "width" "100%"
-          , Html.Attributes.style "border-collapse" "separate"  -- Change this from "collapse" to "separate"
-         , Html.Attributes.style "border-spacing" "10px"  -- Add this line for spacing between cells
+         , Html.Attributes.style "border-collapse" "separate" -- Change this from "collapse" to "separate"
+         , Html.Attributes.style "border-spacing" "10px" -- Add this line for spacing between cells
          , Html.Attributes.style "table-layout" "fixed" -- Add this line to enforce fixed layout
          ]
             ++ anonymousProRegular
@@ -559,11 +629,12 @@ viewTaskTable model =
 viewTaskRow : Time.Posix -> Task -> Html Msg
 viewTaskRow currentTime task =
     tr []
-        [ td [] [viewCategoryCell currentTime NotKnowing task]
-        , td [] [viewCategoryCell currentTime Action task]
-        , td [] [viewCategoryCell currentTime Done task]
-        , td [] [viewCategoryCell currentTime Destroyed task]
+        [ td [] [ viewCategoryCell currentTime NotKnowing task ]
+        , td [] [ viewCategoryCell currentTime Action task ]
+        , td [] [ viewCategoryCell currentTime Done task ]
+        , td [] [ viewCategoryCell currentTime Destroyed task ]
         ]
+
 
 viewTaskColumns : Model -> Html Msg
 viewTaskColumns model =
@@ -587,16 +658,16 @@ viewCategoryColumn title tasks currentTime =
             (List.map (viewTaskItem currentTime) (Dict.values tasks))
         ]
 
+
 viewTaskItem : Time.Posix -> Task -> Html Msg
 viewTaskItem currentTime task =
     div
-        (cellAttributes task task.category ++
-        [ Html.Attributes.style "padding" "10px"
-        , Html.Attributes.style "border-radius" "5px"
-        ])
+        (cellAttributes task task.category
+            ++ [ Html.Attributes.style "padding" "10px"
+               , Html.Attributes.style "border-radius" "5px"
+               ]
+        )
         [ viewTask currentTime task ]
-
-
 
 
 moveTaskButtonAttributes : Category -> List (Attribute msg)
@@ -675,11 +746,13 @@ cellAttributes task category =
          else
             "#000000"
         )
-       , Html.Attributes.style "20px solid"
-       (if task.category == category then
+    , Html.Attributes.style "20px solid"
+        (if task.category == category then
             case category of
                 NotKnowing ->
-                      "#000000" --beigeBorderStyle
+                    "#000000"
+
+                --beigeBorderStyle
                 Action ->
                     greenStyle
 
@@ -688,19 +761,21 @@ cellAttributes task category =
 
                 Destroyed ->
                     blueStyle
-        else
+
+         else
             "#000000"
-       )
-       ]
+        )
+    ]
 
 
 viewCategoryCell : Time.Posix -> Category -> Task -> Html Msg
 viewCategoryCell currentTime category task =
     div
-        (cellAttributes task category ++
-         [ Html.Attributes.style "padding" "10px"  -- Add padding inside cells
-         , Html.Attributes.style "border-radius" "5px"  -- Optional: add rounded corners
-         ])
+        (cellAttributes task category
+            ++ [ Html.Attributes.style "padding" "10px" -- Add padding inside cells
+               , Html.Attributes.style "border-radius" "5px" -- Optional: add rounded corners
+               ]
+        )
         [ if task.category == category then
             viewTask currentTime task
 
@@ -788,30 +863,21 @@ taskDecoder =
         |> required "category" categoryDecoder
         |> required "destroyedAt" posixDecoder
 
+
 userDecoder : Decoder User
 userDecoder =
-    let
-        -- toDecoder gets run *after* all the
-        -- (|> required ...) steps are done.
-        toDecoder : Maybe Auth0UserInfo -> Int -> Decoder User
-        toDecoder user expires =
-            case user of
-                Nothing ->
-                    Decode.succeed NoUser
-                Just userData->
-                    Decode.succeed (Auth0User userData expires)
-    in
-        Decode.succeed Auth0User
-            |> required "Auth0UserInfo" auth0userInfoDecoder
-            |> required "expires_at" Decode.int
-
+    Decode.succeed Auth0User
+        |> required "Auth0UserInfo" auth0userInfoDecoder
+        |> required "expires_at" Decode.int
 
 
 loadFlagsDecoder : Decode.Decoder LoadFlags
 loadFlagsDecoder =
     Decode.succeed LoadFlags
         |> required "tasks" loadTasksDecoder
-        |> optionalAt ["user","user"] (oneOf [ userDecoder, null NoUser ]) NoUser
+        |> optionalAt [ "user", "user" ] (oneOf [ userDecoder, null NoUser ]) NoUser
+        |> required "mostRecentUpdate" Decode.int
+
 
 loadTasksDecoder : Decode.Decoder LoadModel
 loadTasksDecoder =
@@ -820,6 +886,7 @@ loadTasksDecoder =
         |> required "actionTasks" dictTaskDecoder
         |> required "doneTasks" dictTaskDecoder
         |> required "destroyedTasks" dictTaskDecoder
+
 
 auth0userInfoDecoder : Decoder Auth0UserInfo
 auth0userInfoDecoder =
@@ -837,6 +904,7 @@ auth0userInfoDecoder =
         |> required "sub" Decode.string
         |> required "sid" Decode.string
         |> required "nonce" Decode.string
+
 
 millisecondsInDay =
     24 * 60 * 60 * 1000
@@ -856,8 +924,11 @@ anonymousProRegular =
     , Html.Attributes.style "font-weight" "400"
     , Html.Attributes.style "font-style" "normal"
     ]
+
+
 anonymousProRegularMobile =
-    Element.Font.family [ Element.Font.typeface "Anonymous Pro", Element.Font.monospace]
+    Element.Font.family [ Element.Font.typeface "Anonymous Pro", Element.Font.monospace ]
+
 
 anonymousProBold : List (Html.Attribute msg)
 anonymousProBold =
@@ -882,14 +953,18 @@ anonymousProBoldItalic =
     , Html.Attributes.style "font-style" "italic"
     ]
 
+
 blueStyle =
     "#302EEC"
+
 
 beigeStyle =
     "#fff6e4"
 
+
 beigeBorderStyle =
     "#8A8161FF"
+
 
 goldStyle =
     "#FFDE60"
@@ -906,9 +981,15 @@ redStyle =
 whiteStyle =
     "white"
 
+
 isMobileView : Model -> Bool
 isMobileView model =
     model.windowWidth < 768
 
-gumroadUrl = "https://gumroad.com"
-logoutUrl = "/logout"
+
+loginUrl =
+    "/login"
+
+
+logoutUrl =
+    "/logout"

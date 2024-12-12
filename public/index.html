@@ -45,8 +45,8 @@ const defaultTasks = {
   notKnowingTasks: createTasks([
     ["Destroy This Task", "Not Knowing",0],
     ["Mark this Task as Done.", "Not Knowing",1000],
-    ["Read the [Done Manifesto](\\done-manifesto.html)", "Not Knowing",2000],
-    ["Read the [About](\\about.html) page", "Not Knowing",3000],
+    ["Read the [Done Manifesto](\\static\\done-manifesto.html)", "Not Knowing",2000],
+    ["Read the [About](\\static\\about.html) page", "Not Knowing",3000],
   ]),
   actionTasks: createTasks([
     ["Read this Task: (When you've read this Task, mark as done).", "Action",4000],
@@ -67,7 +67,8 @@ var tasks = storedData ? JSON.parse(storedData) : defaultTasks;
 console.log( {{ user_json | safe }})
 var flags = {
     tasks: tasks,
-    user: {user : {{ user_json | safe }}}
+    user: {user : {{ user_json | safe }}},
+    mostRecentUpdate: 0
 };
 console.log(flags)
 const app = Elm.Main.init({
